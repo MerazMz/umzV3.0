@@ -1,0 +1,13 @@
+node_modules/
+captcha.png
+image.png
+.env
+.vscode
+.DS_Store
+
+dist/
+build/
+*.log
+coverage/
+.idea/
+Thumbs.db

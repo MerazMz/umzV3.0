@@ -1,0 +1,19 @@
+{
+    "name": "ums-scraper",
+    "version": "1.0.0",
+    "type": "module",
+    "main": "src/index.js",
+    "scripts": {
+        "start": "node src/index.js"
+    },
+    "dependencies": {
+        "axios": "^1.6.0",
+        "cheerio": "^1.0.0-rc.12",
+        "cookie-parser": "^1.4.7",
+        "cors": "^2.8.5",
+        "express": "^5.2.1",
+        "express-session": "^1.18.2",
+        "playwright": "^1.40.0",
+        "readline": "^1.3.0"
+    }
+}
