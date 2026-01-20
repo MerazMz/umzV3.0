@@ -1,0 +1,265 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Sidebar from './Sidebar';
+import { getMarks } from '../services/api';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+const Marks = () => {
+    const navigate = useNavigate();
+    const [marksData, setMarksData] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [selectedTermIndex, setSelectedTermIndex] = useState(0);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            const cookies = localStorage.getItem('umz_cookies');
+
+            if (!cookies) {
+                navigate('/');
+                return;
+            }
+
+            // Check for cached marks data
+            const cachedData = localStorage.getItem('umz_marks_data');
+            if (cachedData) {
+                try {
+                    const parsed = JSON.parse(cachedData);
+                    setMarksData(parsed);
+                    setLoading(false);
+                    return;
+                } catch {
+                    localStorage.removeItem('umz_marks_data');
+                }
+            }
+
+            try {
+                setLoading(true);
+                const result = await getMarks(cookies);
+                setMarksData(result.data || []);
+                localStorage.setItem('umz_marks_data', JSON.stringify(result.data || []));
+                setError('');
+            } catch (err) {
+                setError(err.message || 'Failed to load marks');
+                if (err.message?.includes('session') || err.message?.includes('unauthorized')) {
+                    localStorage.removeItem('umz_cookies');
+                    localStorage.removeItem('umz_marks_data');
+                    navigate('/');
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [navigate]);
+
+    if (loading) {
+        return (
+            <div className="flex min-h-screen bg-gray-50">
+                <Sidebar />
+                <main className="flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                        <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-gray-900 border-r-transparent" />
+                        <p className="mt-4 text-sm text-gray-500">Loading marks data...</p>
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex min-h-screen bg-gray-50">
+                <Sidebar />
+                <main className="flex-1 p-8">
+                    <div className="max-w-7xl mx-auto">
+                        <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">Error</h3>
+                            <p className="text-gray-600">{error}</p>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
+    const selectedTerm = marksData[selectedTermIndex] || {};
+
+    // Calculate average marks for each assessment type
+    const calculateAverages = (subjects) => {
+        if (!subjects || subjects.length === 0) return [];
+
+        const assessmentTypes = {};
+
+        subjects.forEach(subject => {
+            subject.marksBreakdown.forEach(mark => {
+                if (!assessmentTypes[mark.type]) {
+                    assessmentTypes[mark.type] = { total: 0, count: 0 };
+                }
+
+                // Parse marks like "5/5" or "66/100" to get percentage
+                const marksMatch = mark.marks.match(/(\d+)\/(\d+)/);
+                if (marksMatch) {
+                    const obtained = parseFloat(marksMatch[1]);
+                    const outOf = parseFloat(marksMatch[2]);
+                    const percentage = outOf > 0 ? (obtained / outOf) * 100 : 0;
+                    assessmentTypes[mark.type].total += percentage;
+                    assessmentTypes[mark.type].count += 1;
+                }
+            });
+        });
+
+        return Object.keys(assessmentTypes).map(type => ({
+            name: type.replace(/Marks/i, '').replace(/Term/i, '').trim(),
+            average: Math.round(assessmentTypes[type].total / assessmentTypes[type].count)
+        }));
+    };
+
+    const averageData = calculateAverages(selectedTerm.subjects);
+
+    return (
+        <div className="flex h-screen bg-gray-50 overflow-hidden">
+            <Sidebar />
+            <main className="flex-1 overflow-y-auto p-6 lg:p-10">
+                <div className="max-w-7xl mx-auto space-y-8">
+                    {/* Header with Tabs */}
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div>
+                            <h1 className="text-3xl font-bold text-gray-900 mb-1">Marks</h1>
+                            <p className="text-gray-500">View your term-wise marks breakdown</p>
+                        </div>
+
+                        {/* Term Tabs - Minimal on Right */}
+                        {marksData.length > 0 && (
+                            <div className="flex gap-2">
+                                {marksData.map((term, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => setSelectedTermIndex(idx)}
+                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedTermIndex === idx
+                                            ? 'bg-gray-900 text-white'
+                                            : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                                            }`}
+                                    >
+                                        {term.termId}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Average Performance Card */}
+                    {averageData.length > 0 && (
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4">Average Performance</h3>
+                            <ResponsiveContainer width="100%" height={250}>
+                                <LineChart data={averageData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                                    <XAxis
+                                        dataKey="name"
+                                        tick={{ fontSize: 12, fill: '#6B7280' }}
+                                        angle={-15}
+                                        textAnchor="end"
+                                        height={80}
+                                    />
+                                    <YAxis
+                                        domain={[0, 100]}
+                                        tick={{ fontSize: 12, fill: '#6B7280' }}
+                                        label={{ value: 'Average %', angle: -90, position: 'insideLeft', style: { fontSize: 12, fill: '#6B7280' } }}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{
+                                            backgroundColor: '#1F2937',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            color: 'white',
+                                            fontSize: '12px'
+                                        }}
+                                        labelStyle={{ color: 'white' }}
+                                        itemStyle={{ color: 'white' }}
+                                        formatter={(value) => [`${value}%`, 'Average']}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="average"
+                                        stroke="#111827"
+                                        strokeWidth={2}
+                                        dot={{ fill: '#111827', r: 4 }}
+                                        activeDot={{ r: 6 }}
+                                        isAnimationActive={false}
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+
+                    {/* Subject Cards Grid */}
+                    {selectedTerm.subjects && selectedTerm.subjects.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-6">
+                            {selectedTerm.subjects.map((subject, idx) => (
+                                <div
+                                    key={idx}
+                                    className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-lg transition-all"
+                                >
+                                    {/* Subject Header */}
+                                    <div className="mb-4">
+                                        <p className="text-xs font-mono text-gray-500 mb-1">
+                                            {subject.courseCode}
+                                        </p>
+                                        <h3 className="text-lg font-bold text-gray-900">
+                                            {subject.courseName}
+                                        </h3>
+                                    </div>
+
+                                    {/* Marks Table */}
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="border-b border-gray-200">
+                                                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">
+                                                        Assessment Type
+                                                    </th>
+                                                    <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase">
+                                                        Marks Obtained
+                                                    </th>
+                                                    <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase">
+                                                        Weightage
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {subject.marksBreakdown.map((mark, markIdx) => (
+                                                    <tr
+                                                        key={markIdx}
+                                                        className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                                                    >
+                                                        <td className="py-3 px-4 text-sm text-gray-900">
+                                                            {mark.type}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-sm font-semibold text-right text-gray-900">
+                                                            {mark.marks}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-sm font-semibold text-right text-gray-900">
+                                                            {mark.weightage}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+                            <p className="text-gray-500">No marks data available for this term.</p>
+                        </div>
+                    )}
+                </div>
+            </main>
+        </div>
+    );
+};
+
+export default Marks;

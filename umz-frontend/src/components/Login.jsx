@@ -1,18 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import logoUmz from '../assets/logoUMz.png';
+import { startLogin, completeLogin } from '../services/api';
 
 const Login = () => {
+    const navigate = useNavigate();
     const [theme, setTheme] = useState('dark');
     const [currentSlide, setCurrentSlide] = useState(0);
     const [showPassword, setShowPassword] = useState(false);
 
+    // Login flow state
+    const [step, setStep] = useState(1); // 1 = regno/password, 2 = captcha
+    const [regno, setRegno] = useState('');
+    const [password, setPassword] = useState('');
+    const [captcha, setCaptcha] = useState('');
+    const [sessionId, setSessionId] = useState('');
+    const [captchaImage, setCaptchaImage] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
     // Slider images (empty placeholders)
     const slides = [
         { id: 1, color: 'from-blue-500/20 to-purple-500/20' },
-        // { id: 2, color: 'from-purple-500/20 to-pink-500/20' },
-        // { id: 3, color: 'from-pink-500/20 to-orange-500/20' },
-        // { id: 4, color: 'from-orange-500/20 to-yellow-500/20' }
     ];
 
     useEffect(() => {
@@ -36,6 +45,62 @@ const Login = () => {
         setTheme(newTheme);
         localStorage.setItem('theme', newTheme);
         document.documentElement.classList.toggle('dark', newTheme === 'dark');
+    };
+
+    /**
+     * Step 1: Submit regno and password to get captcha
+     */
+    const handleStep1Submit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+
+        try {
+            const result = await startLogin(regno, password);
+            setSessionId(result.sessionId);
+            setCaptchaImage(result.captchaImage);
+            setStep(2); // Move to captcha step
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    /**
+     * Step 2: Submit captcha to complete login
+     */
+    const handleStep2Submit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+
+        try {
+            const result = await completeLogin(sessionId, captcha);
+            if (result.success) {
+                // Store cookies if needed
+                if (result.cookies) {
+                    localStorage.setItem('umz_cookies', result.cookies);
+                }
+                // Navigate to dashboard
+                navigate('/dashboard');
+            }
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    /**
+     * Go back to step 1
+     */
+    const handleBackToStep1 = () => {
+        setStep(1);
+        setCaptcha('');
+        setCaptchaImage('');
+        setSessionId('');
+        setError('');
     };
 
     return (
@@ -106,81 +171,136 @@ const Login = () => {
                         {/* Card Header */}
                         <div className="flex flex-col space-y-2 p-8 text-center">
                             <img src={logoUmz} className="h-35 w-auto mx-auto object-contain mb-2" alt="UMZ Logo" />
-                            {/* <h3 className="text-2xl font-semibold leading-none tracking-tight">Welcome back</h3> */}
                             <p className="text-sm text-muted-foreground">
-                                Login to your UMZ Dashboard
+                                {step === 1 ? 'Login to your UMZ Dashboard' : 'Enter the captcha to continue'}
                             </p>
                         </div>
 
                         {/* Card Content */}
                         <div className="p-8 pt-0 space-y-6">
-                            <form className="space-y-6">
-                                {/* Registration Number Input */}
-                                <div className="space-y-2">
-                                    {/* <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                        Registration Number
-                                    </label> */}
-                                    <input
-                                        id="registrationNumber"
-                                        type="text"
-                                        placeholder="Registration Number"
-                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    />
+                            {/* Error Message */}
+                            {error && (
+                                <div className="p-3 rounded-md bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
+                                    {error}
                                 </div>
+                            )}
 
-                                {/* Password Input */}
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-end">
-                                        {/* <label htmlFor="password" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                            
-                                        </label> */}
-                                        <a href="#" className=" text-sm text-muted-foreground hover:text-foreground transition-colors">
-                                            Forgot your password?
-                                        </a>
-                                    </div>
-                                    <div className="relative">
+                            {/* Step 1: Registration Number and Password */}
+                            {step === 1 && (
+                                <form onSubmit={handleStep1Submit} className="space-y-6">
+                                    {/* Registration Number Input */}
+                                    <div className="space-y-2">
                                         <input
-                                            id="password"
-                                            type={showPassword ? "text" : "password"}
-                                            placeholder="Password"
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                            id="registrationNumber"
+                                            type="text"
+                                            placeholder="Registration Number"
+                                            value={regno}
+                                            onChange={(e) => setRegno(e.target.value)}
+                                            required
+                                            disabled={loading}
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                         />
+                                    </div>
+
+                                    {/* Password Input */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-end">
+                                            <a href="https://ums.lpu.in/lpuums/forgetpassword.aspx" target="_blank" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                                                Forgot your password?
+                                            </a>
+                                        </div>
+                                        <div className="relative">
+                                            <input
+                                                id="password"
+                                                type={showPassword ? "text" : "password"}
+                                                placeholder="Password"
+                                                value={password}
+                                                onChange={(e) => setPassword(e.target.value)}
+                                                required
+                                                disabled={loading}
+                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                                aria-label={showPassword ? "Hide password" : "Show password"}
+                                            >
+                                                {showPassword ? (
+                                                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                                    </svg>
+                                                ) : (
+                                                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                    </svg>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Next Button */}
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 w-full"
+                                    >
+                                        {loading ? 'Loading...' : 'Next'}
+                                    </button>
+                                </form>
+                            )}
+
+                            {/* Step 2: Captcha */}
+                            {step === 2 && (
+                                <form onSubmit={handleStep2Submit} className="space-y-6">
+                                    {/* Captcha Image */}
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Captcha</label>
+                                        <div className="flex justify-center p-4 bg-background border border-border rounded-md">
+                                            <img
+                                                src={captchaImage}
+                                                alt="Captcha"
+                                                className="max-h-20 object-contain"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Captcha Input */}
+                                    <div className="space-y-2">
+                                        <input
+                                            id="captcha"
+                                            type="text"
+                                            placeholder="Enter captcha text"
+                                            value={captcha}
+                                            onChange={(e) => setCaptcha(e.target.value)}
+                                            required
+                                            disabled={loading}
+                                            autoFocus
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        />
+                                    </div>
+
+                                    {/* Buttons */}
+                                    <div className="flex gap-3">
                                         <button
                                             type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                                            aria-label={showPassword ? "Hide password" : "Show password"}
+                                            onClick={handleBackToStep1}
+                                            disabled={loading}
+                                            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11 px-8 flex-1"
                                         >
-                                            {showPassword ? (
-                                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                                                </svg>
-                                            ) : (
-                                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                </svg>
-                                            )}
+                                            Back
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={loading}
+                                            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 flex-1"
+                                        >
+                                            {loading ? 'Logging in...' : 'Login'}
                                         </button>
                                     </div>
-                                </div>
-
-                                {/* Login Button */}
-                                <button
-                                    type="submit"
-                                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 w-full"
-                                >
-                                    Login
-                                </button>
-                            </form>
-
-                            {/* UMS Link */}
-                            <div className="mt-4 text-center text-sm">
-                                <span className="text-muted-foreground">Jump directly to </span>
-                                <Link to="/dashboard" className="text-foreground hover:underline">
-                                    Dashboard
-                                </Link>
-                            </div>
+                                </form>
+                            )}
                         </div>
                     </div>
                 </div>
