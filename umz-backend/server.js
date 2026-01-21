@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { chromium } from 'playwright';
 import { v4 as uuidv4 } from 'uuid';
+import SessionPool from './src/utils/SessionPool.js';
 import { createAxiosClient } from './src/utils/createAxiosClient.js';
 import { fetchStudentBasicInformation } from './src/modules/GetStudentBasicInformation.js';
 import { fetchStudentAttendanceSummary } from './src/modules/StudentAttendanceSummary.js';
@@ -13,11 +14,14 @@ import { fetchTimeTable } from './src/modules/GetTimeTable.js';
 import { fetchStudentCourses } from './src/modules/GetStudentCourses.js';
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
+
+// Initialize SessionPool with max 20 concurrent Playwright sessions
+const sessionPool = new SessionPool(20);
 
 // Middleware
 app.use(cors({
-    origin: 'http://localhost:5173', // React dev server
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
     credentials: true
 }));
 app.use(express.json());
@@ -60,59 +64,68 @@ app.post('/api/start-login', async (req, res) => {
         });
     }
 
+    // Log pool status before acquiring
+    const poolStatus = sessionPool.getStatus();
+    console.log(`📊 Pool Status: ${poolStatus.active}/${poolStatus.maxActive} active, ${poolStatus.queued} queued, ${poolStatus.available} available`);
+
     let browser, page;
 
     try {
-        console.log(`🌐 Starting login process for: ${regno}`);
+        // Execute within session pool to enforce concurrency limit
+        const result = await sessionPool.run(async () => {
+            console.log(`🌐 Starting login process for: ${regno}`);
 
-        // Launch browser
-        browser = await chromium.launch({ headless: true });
-        const context = await browser.newContext({
-            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            // Launch browser
+            browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({
+                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            });
+            page = await context.newPage();
+
+            // Navigate to login page
+            console.log('📄 Loading login page...');
+            await page.goto('https://ums.lpu.in/lpuums/', { waitUntil: 'networkidle' });
+
+            // Fill registration number
+            console.log('📝 Entering registration number...');
+            const regnoField = page.locator('input[name="txtU"]');
+            await regnoField.click();
+            await page.waitForTimeout(300);
+            await regnoField.type(regno, { delay: 100 });
+            await page.waitForTimeout(500);
+            await regnoField.blur();
+
+            // Wait for captcha to load
+            console.log('🖼️  Waiting for captcha...');
+            await page.waitForSelector('#c_loginnew_examplecaptcha_CaptchaImage', { timeout: 10000 });
+
+            // Screenshot captcha and convert to base64
+            const captchaElement = await page.$('#c_loginnew_examplecaptcha_CaptchaImage');
+            const captchaBuffer = await captchaElement.screenshot();
+            const captchaBase64 = `data:image/png;base64,${captchaBuffer.toString('base64')}`;
+
+            // Generate session ID
+            const sessionId = uuidv4();
+
+            // Store session
+            sessions.set(sessionId, {
+                browser,
+                page,
+                regno,
+                password,
+                timestamp: Date.now()
+            });
+
+            console.log(`✅ Session created: ${sessionId}`);
+
+            return {
+                success: true,
+                sessionId,
+                captchaImage: captchaBase64
+            };
         });
-        page = await context.newPage();
 
-        // Navigate to login page
-        console.log('📄 Loading login page...');
-        await page.goto('https://ums.lpu.in/lpuums/', { waitUntil: 'networkidle' });
-
-        // Fill registration number
-        console.log('📝 Entering registration number...');
-        const regnoField = page.locator('input[name="txtU"]');
-        await regnoField.click();
-        await page.waitForTimeout(300);
-        await regnoField.type(regno, { delay: 100 });
-        await page.waitForTimeout(500);
-        await regnoField.blur();
-
-        // Wait for captcha to load
-        console.log('🖼️  Waiting for captcha...');
-        await page.waitForSelector('#c_loginnew_examplecaptcha_CaptchaImage', { timeout: 10000 });
-
-        // Screenshot captcha and convert to base64
-        const captchaElement = await page.$('#c_loginnew_examplecaptcha_CaptchaImage');
-        const captchaBuffer = await captchaElement.screenshot();
-        const captchaBase64 = `data:image/png;base64,${captchaBuffer.toString('base64')}`;
-
-        // Generate session ID
-        const sessionId = uuidv4();
-
-        // Store session
-        sessions.set(sessionId, {
-            browser,
-            page,
-            regno,
-            password,
-            timestamp: Date.now()
-        });
-
-        console.log(`✅ Session created: ${sessionId}`);
-
-        return res.json({
-            success: true,
-            sessionId,
-            captchaImage: captchaBase64
-        });
+        return res.json(result);
 
     } catch (error) {
         console.error('❌ Error in start-login:', error.message);
@@ -354,12 +367,19 @@ app.post('/api/attendance-details', async (req, res) => {
 
 /**
  * GET /api/health
- * Health check endpoint
+ * Health check endpoint with session pool stats
  */
 app.get('/api/health', (req, res) => {
+    const poolStatus = sessionPool.getStatus();
     res.json({
         status: 'ok',
-        activeSessions: sessions.size
+        activeSessions: sessions.size,
+        pool: {
+            active: poolStatus.active,
+            maxActive: poolStatus.maxActive,
+            queued: poolStatus.queued,
+            available: poolStatus.available
+        }
     });
 });
 

@@ -1,0 +1,15 @@
+# Render Blueprint for UMZ Backend
+services:
+  - type: web
+    name: umz-backend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run server
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FRONTEND_URL
+        sync: false
+        # Add this manually in Render dashboard after deploying frontend
