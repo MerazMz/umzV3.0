@@ -1,8 +1,22 @@
-import React from 'react';
-import { Mail, Calendar, User } from 'lucide-react';
+import React, { useState } from 'react';
+import { Mail, Calendar, User, ChevronDown, ChevronUp } from 'lucide-react';
 
 const MessagesCard = ({ messages = [] }) => {
+    const [expandedMessages, setExpandedMessages] = useState(new Set());
+
     console.log('🔍 MessagesCard received:', messages, 'Length:', messages?.length);
+
+    const toggleMessage = (index) => {
+        const newExpanded = new Set(expandedMessages);
+        if (newExpanded.has(index)) {
+            newExpanded.delete(index);
+        } else {
+            newExpanded.add(index);
+        }
+        setExpandedMessages(newExpanded);
+    };
+
+    const isExpanded = (index) => expandedMessages.has(index);
 
     if (!messages || messages.length === 0) {
         return (
@@ -40,42 +54,94 @@ const MessagesCard = ({ messages = [] }) => {
 
             {/* Messages List */}
             <div className="max-h-96 overflow-y-auto">
-                {messages.map((message, index) => (
-                    <div
-                        key={index}
-                        className="p-6 border-b border-gray-100 hover:bg-gray-50 transition-colors last:border-b-0"
-                    >
-                        {/* Message Header */}
-                        <div className="flex items-start justify-between gap-4 mb-3">
-                            <h3 className="font-semibold text-gray-900 text-sm flex-1">
-                                {message.subject || 'No Subject'}
-                            </h3>
-                        </div>
+                {messages.map((message, index) => {
+                    const expanded = isExpanded(index);
+                    const hasLongContent = message.content && message.content.length > 150;
 
-                        {/* Message Meta Info */}
-                        <div className="flex flex-wrap items-center gap-4 mb-3 text-xs text-gray-500">
-                            {message.sender && (
-                                <div className="flex items-center gap-1.5">
-                                    <User className="h-3.5 w-3.5" />
-                                    <span>{message.sender}</span>
+                    return (
+                        <div
+                            key={index}
+                            className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors"
+                        >
+                            <div
+                                className={`p-6 cursor-pointer ${hasLongContent ? 'hover:bg-gray-50' : ''}`}
+                                onClick={() => hasLongContent && toggleMessage(index)}
+                            >
+                                {/* Message Header */}
+                                <div className="flex items-start justify-between gap-4 mb-3">
+                                    <h3 className="font-semibold text-gray-900 text-sm flex-1">
+                                        {message.subject || 'No Subject'}
+                                    </h3>
+                                    {hasLongContent && (
+                                        <button
+                                            className="flex-shrink-0 p-1 rounded-full hover:bg-gray-200 transition-colors"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleMessage(index);
+                                            }}
+                                        >
+                                            {expanded ? (
+                                                <ChevronUp className="h-4 w-4 text-gray-600" />
+                                            ) : (
+                                                <ChevronDown className="h-4 w-4 text-gray-600" />
+                                            )}
+                                        </button>
+                                    )}
                                 </div>
-                            )}
-                            {message.date && (
-                                <div className="flex items-center gap-1.5">
-                                    <Calendar className="h-3.5 w-3.5" />
-                                    <span>{message.date}</span>
-                                </div>
-                            )}
-                        </div>
 
-                        {/* Message Content */}
-                        {message.content && (
-                            <p className="text-sm text-gray-600 line-clamp-2">
-                                {message.content}
-                            </p>
-                        )}
-                    </div>
-                ))}
+                                {/* Message Meta Info */}
+                                <div className="flex flex-wrap items-center gap-4 mb-3 text-xs text-gray-500">
+                                    {message.sender && (
+                                        <div className="flex items-center gap-1.5">
+                                            <User className="h-3.5 w-3.5" />
+                                            <span>{message.sender}</span>
+                                        </div>
+                                    )}
+                                    {message.date && (
+                                        <div className="flex items-center gap-1.5">
+                                            <Calendar className="h-3.5 w-3.5" />
+                                            <span>{message.date}</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Message Content */}
+                                {message.content && (
+                                    <div>
+                                        <p className={`text-sm text-gray-600 whitespace-pre-wrap ${expanded ? '' : 'line-clamp-2'
+                                            }`}>
+                                            {message.content}
+                                        </p>
+                                        {hasLongContent && !expanded && (
+                                            <button
+                                                className="cursor-pointer text-xs text-blue-600 hover:text-blue-700 font-medium mt-2 flex items-center gap-1"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleMessage(index);
+                                                }}
+                                            >
+                                                Read more
+                                                <ChevronDown className="h-3 w-3" />
+                                            </button>
+                                        )}
+                                        {hasLongContent && expanded && (
+                                            <button
+                                                className="cursor-pointer text-xs text-blue-600 hover:text-blue-700 font-medium mt-2 flex items-center gap-1"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleMessage(index);
+                                                }}
+                                            >
+                                                Show less
+                                                <ChevronUp className="h-3 w-3" />
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );

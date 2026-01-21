@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import logoUMz from '../assets/logoUMz.png';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
@@ -13,7 +13,10 @@ import {
     ChevronRight,
     Menu,
     X,
-    LogOut
+    LogOut,
+    RefreshCw,
+    Sun,
+    Moon
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -21,9 +24,42 @@ const Sidebar = () => {
     const location = useLocation();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [theme, setTheme] = useState('light');
     const [studentName, setStudentName] = useState('Student');
     const [studentEmail, setStudentEmail] = useState('');
     const [studentPhoto, setStudentPhoto] = useState('');
+    const settingsRef = useRef(null);
+
+    // Handle click outside settings dropdown
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (settingsRef.current && !settingsRef.current.contains(event.target)) {
+                setIsSettingsOpen(false);
+            }
+        };
+
+        if (isSettingsOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isSettingsOpen]);
+
+    // Initialize theme from localStorage
+    useEffect(() => {
+        const savedTheme = localStorage.getItem('umz_theme') || 'light';
+        setTheme(savedTheme);
+
+        // Apply theme to document
+        if (savedTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    }, []);
 
     useEffect(() => {
         // Function to load student info from localStorage
@@ -69,9 +105,39 @@ const Sidebar = () => {
         localStorage.removeItem('umz_student_info');
         localStorage.removeItem('umz_attendance_data');
         localStorage.removeItem('umz_marks_data');
+        localStorage.removeItem('umz_courses_data');
+        localStorage.removeItem('umz_timetable_data');
 
         // Redirect to login
         navigate('/');
+    };
+
+    const handleResync = () => {
+        // Clear all cached data (but keep cookies and session)
+        localStorage.removeItem('umz_student_info');
+        localStorage.removeItem('umz_attendance_data');
+        localStorage.removeItem('umz_marks_data');
+        localStorage.removeItem('umz_courses_data');
+        localStorage.removeItem('umz_timetable_data');
+
+        setIsSettingsOpen(false);
+
+        // Reload the current page to refetch data
+        window.location.reload();
+    };
+
+    const handleThemeToggle = () => {
+        const newTheme = theme === 'light' ? 'dark' : 'light';
+        setTheme(newTheme);
+        localStorage.setItem('umz_theme', newTheme);
+        setIsSettingsOpen(false);
+
+        // Apply or remove dark class from document root
+        if (newTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
     };
 
     const menuSections = [
@@ -89,7 +155,7 @@ const Sidebar = () => {
         {
             title: "Other",
             items: [
-                { name: "Settings", icon: Settings, path: "/settings", hasChevron: true },
+                { name: "Settings", icon: Settings, isDropdown: true },
                 { name: "Help Center", icon: HelpCircle, path: "/help" },
             ]
         }
@@ -131,22 +197,22 @@ const Sidebar = () => {
             <aside
                 className={`
                     fixed lg:static inset-y-0 left-0 z-40
-                    w-72 bg-white border-r border-gray-200
+                    w-72 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700
                     flex flex-col
                     transition-transform duration-300 ease-in-out
                     ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                 `}
             >
                 {/* Logo/Branding Section */}
-                <div className="p-6 border-b border-gray-200">
+                <div className="p-6 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-3">
                         <div className="flex items-center justify-center w-10 h-10 rounded-lg">
                             {/* <span className="text-white font-bold text-xl">U</span> */}
                             <img src={logoUMz} alt="" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold font-mono text-gray-900">UMZ</h1>
-                            <p className="text-xs text-gray-500">UMS Made Zippy</p>
+                            <h1 className="text-xl font-bold font-mono text-gray-900 dark:text-white">UMZ</h1>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">UMS Made Zippy</p>
                         </div>
                     </div>
                 </div>
@@ -156,7 +222,7 @@ const Sidebar = () => {
                     {menuSections.map((section, sectionIndex) => (
                         <div key={sectionIndex} className="mb-6">
                             {/* Section Title */}
-                            <h3 className="px-3 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <h3 className="px-3 mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 {section.title}
                             </h3>
 
@@ -165,6 +231,83 @@ const Sidebar = () => {
                                 {section.items.map((item, itemIndex) => {
                                     const Icon = item.icon;
                                     const isActive = location.pathname === item.path;
+
+                                    // Settings dropdown item
+                                    if (item.isDropdown) {
+                                        return (
+                                            <div key={itemIndex} className="relative" ref={settingsRef}>
+                                                <button
+                                                    onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                                                    className="cursor-pointer w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white transition-colors"
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <Icon className="h-5 w-5" />
+                                                        <span>{item.name}</span>
+                                                    </div>
+                                                    <ChevronRight
+                                                        className={`h-4 w-4 text-gray-400 transition-transform ${isSettingsOpen ? 'rotate-90' : ''}`}
+                                                    />
+                                                </button>
+
+                                                {/* Dropdown Menu */}
+                                                {isSettingsOpen && (
+                                                    <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-50 overflow-hidden">
+                                                        {/* Theme Toggle Tabs */}
+                                                        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Theme</p>
+                                                            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                                                                <button disabled="true"
+                                                                    onClick={() => {
+                                                                        if (theme !== 'light') {
+                                                                            setTheme('light');
+                                                                            localStorage.setItem('umz_theme', 'light');
+                                                                            document.documentElement.classList.remove('dark');
+                                                                        }
+                                                                    }}
+                                                                    className={`cursor-not-allowed flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${theme === 'light'
+                                                                            ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                                                                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                                                                        }`}
+                                                                >
+                                                                    <Sun className="h-4 w-4" />
+                                                                    <span>Light</span>
+                                                                </button>
+                                                                <button disabled="true"
+                                                                    onClick={() => {
+                                                                        if (theme !== 'dark') {
+                                                                            setTheme('dark');
+                                                                            localStorage.setItem('umz_theme', 'dark');
+                                                                            document.documentElement.classList.add('dark');
+                                                                        }
+                                                                    }}
+                                                                    className={`cursor-not-allowed flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${theme === 'dark'
+                                                                            ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                                                                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                                                                        }`}
+                                                                >
+                                                                    <Moon className="h-4 w-4" />
+                                                                    <span>Dark</span>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        <button
+                                                            onClick={handleResync}
+                                                            className="cursor-pointer w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                                                        >
+                                                            <RefreshCw className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+                                                            <div>
+                                                                <p className="text-sm font-medium text-gray-900 dark:text-white">Resync Data</p>
+                                                                <p className="text-xs text-gray-500 dark:text-gray-300">Clear cache & refetch</p>
+                                                            </div>
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    }
+
+                                    // Regular navigation links
                                     return (
                                         <Link
                                             key={itemIndex}
@@ -174,8 +317,8 @@ const Sidebar = () => {
                                                 flex items-center justify-between px-3 py-2 rounded-lg
                                                 text-sm font-medium transition-colors
                                                 ${isActive
-                                                    ? 'bg-gray-100 text-gray-900'
-                                                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                                                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                                                 }
                                             `}
                                         >
@@ -195,18 +338,19 @@ const Sidebar = () => {
                                             </div>
                                         </Link>
                                     );
-                                })}
+                                })
+                                }
                             </nav>
                         </div>
                     ))}
                 </div>
 
                 {/* User Profile Section */}
-                <div className="border-t border-gray-200 p-4">
+                <div className="border-t border-gray-200 dark:border-gray-700 p-4">
                     {/* Profile Header - Clickable */}
                     <button
                         onClick={() => setIsProfileOpen(!isProfileOpen)}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                        className="cursor-pointer w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                     >
                         <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-900 text-white font-semibold text-sm overflow-hidden">
                             {studentPhoto ? (
@@ -228,7 +372,7 @@ const Sidebar = () => {
                             </div>
                         </div>
                         <div className="flex-1 min-w-0 text-left">
-                            <p className="text-sm font-medium text-gray-900 truncate">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                                 {studentName}
                             </p>
                             {studentEmail && (
@@ -246,7 +390,7 @@ const Sidebar = () => {
                     <div className={`overflow-hidden transition-all duration-200 ${isProfileOpen ? 'max-h-20 mt-2' : 'max-h-0'}`}>
                         <button
                             onClick={handleLogout}
-                            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                            className="cursor-pointer w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                         >
                             <LogOut className="h-5 w-5" />
                             <span>Logout</span>

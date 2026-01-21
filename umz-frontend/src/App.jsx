@@ -4,6 +4,8 @@ import Dashboard from './components/Dashboard';
 import Attendance from './components/Attendance';
 import Marks from './components/Marks';
 import CGPA from './components/CGPA';
+import TimeTable from './components/TimeTable';
+import Courses from './components/Courses';
 import './App.css';
 
 function App() {
@@ -15,6 +17,8 @@ function App() {
         <Route path="/attendance" element={<Attendance />} />
         <Route path="/marks" element={<Marks />} />
         <Route path="/cgpa" element={<CGPA />} />
+        <Route path="/time-table" element={<TimeTable />} />
+        <Route path="/courses" element={<Courses />} />
       </Routes>
     </BrowserRouter>
   );

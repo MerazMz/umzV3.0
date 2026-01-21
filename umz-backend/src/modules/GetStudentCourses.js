@@ -8,75 +8,117 @@ import * as cheerio from 'cheerio';
 export async function fetchStudentCourses(client) {
     console.log('📊 Fetching Student Courses...');
 
-    const response = await client.post(
-        'https://ums.lpu.in/lpuums/StudentDashboard.aspx/GetStudentCourses',
-        {},
-        {
-            headers: {
-                'Referer': 'https://ums.lpu.in/lpuums/StudentDashboard.aspx'
+    try {
+        const response = await client.post(
+            'https://ums.lpu.in/lpuums/StudentDashboard.aspx/GetStudentCourses',
+            JSON.stringify({}),
+            {
+                headers: {
+                    'Content-Type': 'application/json; charset=UTF-8',
+                    'Referer': 'https://ums.lpu.in/lpuums/StudentDashboard.aspx',
+                    'Accept': 'application/json, text/javascript, */*; q=0.01',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             }
+        );
+
+        // Check if response has the expected structure
+        if (!response.data) {
+            throw new Error('Invalid response from server - no data');
         }
-    );
 
-    const html = response.data.d;
-    const $ = cheerio.load(html);
+        // The response should have a 'd' property containing the HTML
+        const html = response.data.d;
 
-    const courses = [];
+        if (!html || typeof html !== 'string') {
+            console.error('Response data:', response.data);
+            throw new Error('Invalid response format - expected HTML string in data.d');
+        }
 
-    // Parse each course div
-    $('.mycoursesdiv').each((_, courseDiv) => {
-        const $div = $(courseDiv);
+        const $ = cheerio.load(html);
+        const courses = [];
 
-        // Extract attendance percentage from the circular progress indicator
-        const attendanceText = $div.find('.c100 span').text().trim();
-        const attendance = attendanceText.replace('%', '');
+        // Parse each course div
+        $('.mycoursesdiv').each((_, courseDiv) => {
+            const $div = $(courseDiv);
 
-        // Extract course details from the middle column
-        const courseInfo = $div.find('.col-sm-6 p').first();
+            // Extract attendance percentage from the circular progress indicator
+            const attendanceText = $div.find('.c100 span').text().trim();
+            const attendance = attendanceText.replace('%', '');
 
-        // Extract course code and name
-        const courseCodeElement = courseInfo.find('b').first();
-        const courseCode = courseCodeElement.text().trim();
-        const fullText = courseInfo.clone().children().remove().end().text();
-        const courseName = fullText.split(':')[1]?.split('Term')[0]?.trim() || '';
+            // Extract course details from the paragraphs
+            const $paragraphs = $div.find('.col-sm-6 p');
 
-        // Extract term
-        const termText = courseInfo.html() || '';
-        const termMatch = termText.match(/<b>Term\s*:\s*<\/b>(\d+\w*)/);
-        const term = termMatch ? termMatch[1].trim() : '';
+            // First paragraph contains course code and name
+            const firstP = $paragraphs.eq(0);
+            const courseCode = firstP.find('b').first().text().trim();
 
-        // Extract roll number and group
-        const rollNoElement = $div.find('.col-sm-6 p:nth-child(2)');
-        const rollNoText = rollNoElement.text();
-        const rollNoMatch = rollNoText.match(/Roll No\s*:\s*(.+?)\/\s*(.+)/);
-        const rollNo = rollNoMatch ? rollNoMatch[1].trim() : '';
-        const group = rollNoMatch ? rollNoMatch[2].trim() : '';
+            // Get the full text and extract course name and term
+            const firstPHtml = firstP.html() || '';
 
-        // Extract exam pattern
-        const examPatternElement = $div.find('.col-sm-6 p:nth-child(3)');
-        const examPatternText = examPatternElement.text();
-        const examPattern = examPatternText.replace('Exam Pattern :', '').trim();
+            // Extract course name (between course code and <br>)
+            const courseNameMatch = firstPHtml.match(/:\s*([^<]+)<br/i);
+            const courseName = courseNameMatch ? courseNameMatch[1].trim() : '';
 
-        courses.push({
-            courseCode,
-            courseName,
-            term,
-            rollNo,
-            group,
-            examPattern,
-            attendance
+            // Extract term
+            const termMatch = firstPHtml.match(/<b>Term\s*:\s*<\/b>(\d+\w*)/i);
+            const term = termMatch ? termMatch[1].trim() : '';
+
+            // Find the paragraph that contains "Roll No"
+            let rollNo = '';
+            let group = '';
+            $paragraphs.each((_, p) => {
+                const pText = $(p).text();
+                if (pText.includes('Roll No')) {
+                    const rollNoMatch = pText.match(/Roll No\s*:\s*(.+?)\s*\/\s*(.+)/);
+                    if (rollNoMatch) {
+                        rollNo = rollNoMatch[1].trim();
+                        group = rollNoMatch[2].trim();
+                    }
+                }
+            });
+
+            // Find the paragraph that contains "Exam Pattern"
+            let examPattern = 'NA';
+            $paragraphs.each((_, p) => {
+                const pText = $(p).text();
+                if (pText.includes('Exam Pattern')) {
+                    const examPatternMatch = pText.match(/Exam Pattern\s*:\s*(.+)/);
+                    if (examPatternMatch) {
+                        examPattern = examPatternMatch[1].trim();
+                    }
+                }
+            });
+
+            courses.push({
+                courseCode,
+                courseName,
+                term,
+                rollNo,
+                group,
+                examPattern,
+                attendance
+            });
         });
-    });
 
-    console.log('\n� STUDENT COURSES\n');
+        console.log('\n📚 STUDENT COURSES\n');
 
-    courses.forEach((course, index) => {
-        console.log(`${index + 1}. ${course.courseCode} - ${course.courseName}`);
-        console.log(`   Term: ${course.term} | Attendance: ${course.attendance}%`);
-        console.log(`   Roll No: ${course.rollNo} | Group: ${course.group}`);
-        console.log(`   Exam Pattern: ${course.examPattern}`);
-        console.log('');
-    });
+        courses.forEach((course, index) => {
+            console.log(`${index + 1}. ${course.courseCode} - ${course.courseName}`);
+            console.log(`   Term: ${course.term} | Attendance: ${course.attendance}%`);
+            console.log(`   Roll No: ${course.rollNo} | Group: ${course.group}`);
+            console.log(`   Exam Pattern: ${course.examPattern}`);
+            console.log('');
+        });
 
-    return courses;
+        return courses;
+
+    } catch (error) {
+        console.error('❌ Error fetching courses:', error.message);
+        if (error.response) {
+            console.error('Response status:', error.response.status);
+            console.error('Response data:', error.response.data);
+        }
+        throw error;
+    }
 }

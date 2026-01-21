@@ -139,3 +139,50 @@ export async function getMarks(cookies) {
 
     return data;
 }
+
+/**
+ * Get student timetable
+ * @param {string} cookies - Session cookies
+ * @returns {Promise<{success: boolean, data: Object}>}
+ */
+export async function getTimeTable(cookies) {
+    const response = await fetch(`${API_BASE_URL}/timetable`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cookies }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch timetable');
+    }
+
+    return data;
+}
+
+/**
+ * Get student courses
+ * @param {string} cookies - Session cookies
+ * @returns {Promise<{success: boolean, data: Array}>}
+ */
+export async function getCourses(cookies) {
+    const response = await fetch(`${API_BASE_URL}/courses`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cookies }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch courses');
+    }
+
+    return data;
+}
+

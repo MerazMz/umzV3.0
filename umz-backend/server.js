@@ -9,6 +9,8 @@ import { fetchStudentAttendanceDetail } from './src/modules/StudentAttendanceDet
 import { fetchTermwiseCGPA } from './src/modules/TermwiseCGPA.js';
 import { fetchTermWiseMarks } from './src/modules/TermWiseMarks.js';
 import { fetchStudentMessages } from './src/modules/GetStudentMessages.js';
+import { fetchTimeTable } from './src/modules/GetTimeTable.js';
+import { fetchStudentCourses } from './src/modules/GetStudentCourses.js';
 
 const app = express();
 const PORT = 3001;
@@ -394,6 +396,92 @@ app.post('/api/marks', async (req, res) => {
 
     } catch (error) {
         console.error('❌ Error fetching marks:', error.message);
+
+        return res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/timetable
+ * Fetch student timetable using stored cookies
+ */
+app.post('/api/timetable', async (req, res) => {
+    const { cookies } = req.body;
+
+    if (!cookies) {
+        return res.status(400).json({
+            success: false,
+            error: 'Cookies are required'
+        });
+    }
+
+    try {
+        console.log('📅 Fetching student timetable...');
+
+        const axiosClient = createAxiosClient(cookies);
+
+        // First, fetch courses to get the termId
+        const coursesData = await fetchStudentCourses(axiosClient);
+
+        if (!coursesData || coursesData.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'No courses found - cannot determine term ID'
+            });
+        }
+
+        // Get termId from the first course
+        const termId = coursesData[0].term;
+        console.log(`📋 Using Term ID: ${termId}`);
+
+        // Fetch timetable with the termId
+        const timetableData = await fetchTimeTable(axiosClient, termId);
+
+        return res.json({
+            success: true,
+            data: timetableData
+        });
+
+    } catch (error) {
+        console.error('❌ Error fetching timetable:', error.message);
+
+        return res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/courses
+ * Fetch student courses using stored cookies
+ */
+app.post('/api/courses', async (req, res) => {
+    const { cookies } = req.body;
+
+    if (!cookies) {
+        return res.status(400).json({
+            success: false,
+            error: 'Cookies are required'
+        });
+    }
+
+    try {
+        console.log('📚 Fetching student courses...');
+
+        const axiosClient = createAxiosClient(cookies);
+        const coursesData = await fetchStudentCourses(axiosClient);
+
+        return res.json({
+            success: true,
+            data: coursesData
+        });
+
+    } catch (error) {
+        console.error('❌ Error fetching courses:', error.message);
 
         return res.status(500).json({
             success: false,

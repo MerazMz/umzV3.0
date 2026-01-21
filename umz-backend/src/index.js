@@ -9,6 +9,7 @@ import { fetchTermWiseMarks } from './modules/TermWiseMarks.js';
 import { fetchStudentAttendanceSummary } from './modules/StudentAttendanceSummary.js';
 import { fetchStudentAttendanceDetail } from './modules/StudentAttendanceDetail.js';
 import { fetchStudentMessages } from './modules/GetStudentMessages.js';
+import { fetchTimeTable } from './modules/GetTimeTable.js';
 
 /**
  * Display menu options
@@ -25,6 +26,7 @@ function displayMenu() {
     console.log('  6. Fetch Attendance Summary');
     console.log('  7. Fetch Attendance Detail');
     console.log('  8. Fetch Student Messages');
+    console.log('  9. Fetch Timetable');
     console.log('  *. Exit');
     console.log('═══════════════════════════════════════════\n');
 }
@@ -94,13 +96,27 @@ async function main() {
                     await fetchStudentMessages(client);
                     break;
 
+                case '9':
+                    try {
+                        const coursesData = await fetchStudentCourses(client);
+                        if (coursesData && coursesData.length > 0) {
+                            const termId = coursesData[0].term;
+                            await fetchTimeTable(client, termId);
+                        } else {
+                            console.log('❌ No courses found - cannot fetch timetable');
+                        }
+                    } catch (error) {
+                        console.log('❌ Error:', error.message);
+                    }
+                    break;
+
                 case '*':
                     console.log('\n👋 Exiting... Goodbye!');
                     running = false;
                     break;
 
                 default:
-                    console.log('\n❌ Invalid choice! Please select 1-8 or * to exit.');
+                    console.log('\n❌ Invalid choice! Please select 1-9 or * to exit.');
                     break;
             }
         }
@@ -115,4 +131,4 @@ async function main() {
 main();
 
 // Export modules for external use
-export { loginWithPlaywright, createAxiosClient, fetchTermwiseCGPA };
+export { loginWithPlaywright, createAxiosClient, fetchTermwiseCGPA, fetchTimeTable };
