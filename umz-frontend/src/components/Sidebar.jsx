@@ -18,7 +18,7 @@ import {
     Sun,
     Moon
 } from 'lucide-react';
-import { startLogin, completeLogin } from '../services/api';
+import { startLogin, completeLogin, getStudentInfo } from '../services/api';
 import CaptchaModal from './CaptchaModal';
 
 const Sidebar = () => {
@@ -128,18 +128,38 @@ const Sidebar = () => {
             const cookies = localStorage.getItem('umz_cookies');
 
             if (cookies) {
-                // Cookies exist, just clear cache and reload (normal resync)
-                localStorage.removeItem('umz_student_info');
-                localStorage.removeItem('umz_attendance_data');
-                localStorage.removeItem('umz_marks_data');
-                localStorage.removeItem('umz_courses_data');
-                localStorage.removeItem('umz_timetable_data');
+                // Cookies exist - but they might be expired, so test them first
+                try {
+                    setCaptchaLoading(true);
+                    console.log('🔍 Testing cookie validity...');
 
-                window.location.reload();
-                return;
+                    // Try a small API call to test if cookies are valid
+                    const testResult = await getStudentInfo(cookies);
+
+                    // Cookies are valid! Just clear cache and reload
+                    console.log('✅ Cookies valid, clearing cache and reloading');
+                    setCaptchaLoading(false);
+                    localStorage.removeItem('umz_student_info');
+                    localStorage.removeItem('umz_attendance_data');
+                    localStorage.removeItem('umz_marks_data');
+                    localStorage.removeItem('umz_courses_data');
+                    localStorage.removeItem('umz_timetable_data');
+
+                    window.location.reload();
+                    return;
+                } catch (testError) {
+                    // Cookies are expired or invalid
+                    console.log('❌ Cookies expired/invalid:', testError.message);
+                    setCaptchaLoading(false);
+
+                    // Remove expired cookies
+                    localStorage.removeItem('umz_cookies');
+
+                    // Fall through to login flow below
+                }
             }
 
-            // No cookies - need to re-authenticate
+            // No cookies OR expired cookies - need to re-authenticate
             // Get stored credentials
             const savedRegno = localStorage.getItem('umz_regno');
             const savedPassword = localStorage.getItem('umz_password');
@@ -163,6 +183,23 @@ const Sidebar = () => {
             setCaptchaLoading(false);
             console.error('Error during resync:', error);
             alert('Failed to start resync. Please try again or login manually.');
+        }
+    };
+
+    const handleReloadCaptcha = async () => {
+        try {
+            setCaptchaLoading(true);
+            const savedRegno = localStorage.getItem('umz_regno');
+            const savedPassword = localStorage.getItem('umz_password');
+
+            const result = await startLogin(savedRegno, savedPassword);
+            setSessionId(result.sessionId);
+            setCaptchaImage(result.captchaImage);
+        } catch (error) {
+            console.error('Error reloading captcha:', error);
+            alert('Failed to reload captcha. Please try again.');
+        } finally {
+            setCaptchaLoading(false);
         }
     };
 
@@ -478,7 +515,7 @@ const Sidebar = () => {
                             <div className="absolute inset-0 border-4 border-gray-900 rounded-full border-t-transparent animate-spin"></div>
                         </div>
                         <div className="text-center">
-                            <p className="text-lg font-semibold text-gray-900">Initializing Login</p>
+                            <p className="text-lg font-semibold text-gray-900">Initializing Session</p>
                             <p className="text-sm text-gray-500 mt-1">Please wait...</p>
                         </div>
                     </div>
@@ -491,6 +528,7 @@ const Sidebar = () => {
                 onClose={() => setShowCaptchaModal(false)}
                 captchaImage={captchaImage}
                 onSubmit={handleCaptchaSubmit}
+                onReload={handleReloadCaptcha}
                 loading={captchaLoading}
             />
         </>

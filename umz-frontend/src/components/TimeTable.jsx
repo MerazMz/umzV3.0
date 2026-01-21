@@ -44,14 +44,7 @@ const TimeTable = () => {
 
     useEffect(() => {
         const fetchData = async () => {
-            const cookies = localStorage.getItem('umz_cookies');
-
-            if (!cookies) {
-                navigate('/');
-                return;
-            }
-
-            // Check if we have cached timetable data
+            // First, always check for cached timetable data
             const cachedTimetable = localStorage.getItem('umz_timetable_data');
             if (cachedTimetable) {
                 try {
@@ -59,14 +52,26 @@ const TimeTable = () => {
                     console.log('📦 Using cached timetable data');
                     setTimetable(parsed);
                     setLoading(false);
-                    return;
+                    return; // Use cache, don't fetch
                 } catch (e) {
                     console.error('Error parsing cached timetable data:', e);
                     localStorage.removeItem('umz_timetable_data');
                 }
             }
 
-            // Fetch fresh data if no cache
+            // No cache available - check if we have cookies
+            const cookies = localStorage.getItem('umz_cookies');
+
+            if (!cookies) {
+                // No cookies and no cache - show empty state
+                console.log('⚠️ No cookies and no cached timetable');
+                setLoading(false);
+                setError('');
+                setTimetable({});
+                return;
+            }
+
+            // We have cookies but no cache - fetch fresh data
             try {
                 setLoading(true);
                 console.log('🌐 Fetching fresh timetable from API');
@@ -80,10 +85,8 @@ const TimeTable = () => {
             } catch (err) {
                 setError(err.message);
                 if (err.message.includes('session') || err.message.includes('unauthorized')) {
+                    // Session expired - remove cookies
                     localStorage.removeItem('umz_cookies');
-                    localStorage.removeItem('umz_student_info');
-                    localStorage.removeItem('umz_timetable_data');
-                    navigate('/');
                 }
             } finally {
                 setLoading(false);

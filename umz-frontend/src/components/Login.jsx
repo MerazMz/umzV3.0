@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { RefreshCw } from 'lucide-react';
 import logoUmz from '../assets/logoUMz.png';
 import { startLogin, completeLogin } from '../services/api';
 
@@ -67,6 +68,25 @@ const Login = () => {
             setSessionId(result.sessionId);
             setCaptchaImage(result.captchaImage);
             setStep(2); // Move to captcha step
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    /**
+     * Reload captcha - fetch a new captcha image
+     */
+    const handleReloadCaptcha = async () => {
+        setError('');
+        setLoading(true);
+
+        try {
+            const result = await startLogin(regno, password);
+            setSessionId(result.sessionId);
+            setCaptchaImage(result.captchaImage);
+            setCaptcha(''); // Clear captcha input
         } catch (err) {
             setError(err.message);
         } finally {
@@ -268,12 +288,23 @@ const Login = () => {
                                 <form onSubmit={handleStep2Submit} className="space-y-6">
                                     {/* Captcha Image */}
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium">Captcha</label>
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-sm font-medium">Captcha</label>
+                                            <button
+                                                type="button"
+                                                onClick={handleReloadCaptcha}
+                                                disabled={loading}
+                                                className="cursor-pointer p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                title="Reload captcha"
+                                            >
+                                                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                                            </button>
+                                        </div>
                                         <div className="flex justify-center p-4 bg-background border border-border rounded-md">
                                             <img
                                                 src={captchaImage}
                                                 alt="Captcha"
-                                                className="max-h-20 object-contain"
+                                                className="max-h-20 object-contain scale-180 rounded-md"
                                             />
                                         </div>
                                     </div>
@@ -283,14 +314,18 @@ const Login = () => {
                                         <input
                                             id="captcha"
                                             type="text"
-                                            placeholder="Enter captcha text"
+                                            placeholder="Enter captcha"
                                             value={captcha}
-                                            onChange={(e) => setCaptcha(e.target.value)}
+                                            onChange={(e) => setCaptcha(e.target.value.toUpperCase())}
                                             required
                                             disabled={loading}
+                                            autoComplete="off"
                                             autoFocus
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                            className="inline-flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 font-mono text-lg tracking-wider uppercase"
                                         />
+                                        {/* <p className="text-xs text-muted-foreground">
+                                            Characters are automatically converted to uppercase
+                                        </p> */}
                                     </div>
 
                                     {/* Buttons */}
@@ -317,7 +352,7 @@ const Login = () => {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

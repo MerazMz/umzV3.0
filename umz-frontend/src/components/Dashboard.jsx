@@ -15,14 +15,7 @@ const Dashboard = () => {
 
     useEffect(() => {
         const fetchData = async () => {
-            const cookies = localStorage.getItem('umz_cookies');
-
-            if (!cookies) {
-                navigate('/');
-                return;
-            }
-
-            // Check if we have cached student info
+            // First, always check for cached data
             const cachedInfo = localStorage.getItem('umz_student_info');
             if (cachedInfo) {
                 try {
@@ -30,14 +23,26 @@ const Dashboard = () => {
                     console.log('📦 Using cached student info');
                     setStudentInfo(parsed);
                     setLoading(false);
-                    return;
+                    return; // Use cache, don't fetch
                 } catch (e) {
                     console.error('Error parsing cached student info:', e);
                     localStorage.removeItem('umz_student_info');
                 }
             }
 
-            // Fetch fresh data if no cache
+            // No cache available - check if we have cookies
+            const cookies = localStorage.getItem('umz_cookies');
+
+            if (!cookies) {
+                // No cookies and no cache - show empty state
+                console.log('⚠️ No cookies and no cached data');
+                setLoading(false);
+                setError('');
+                setStudentInfo(null);
+                return;
+            }
+
+            // We have cookies but no cache - fetch fresh data
             try {
                 setLoading(true);
                 console.log('🌐 Fetching fresh student info from API');
@@ -52,9 +57,8 @@ const Dashboard = () => {
             } catch (err) {
                 setError(err.message);
                 if (err.message.includes('session') || err.message.includes('unauthorized')) {
+                    // Session expired - remove cookies but keep trying to show cached data
                     localStorage.removeItem('umz_cookies');
-                    localStorage.removeItem('umz_student_info');
-                    navigate('/');
                 }
             } finally {
                 setLoading(false);
@@ -91,6 +95,28 @@ const Dashboard = () => {
                     <div className="text-center">
                         <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-solid border-gray-900 dark:border-white border-r-transparent"></div>
                         <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
+    // Show empty/resync state when no data and no cookies
+    if (!loading && !studentInfo && !error) {
+        return (
+            <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+                <Sidebar />
+                <main className="flex-1 flex items-center justify-center p-8">
+                    <div className="text-center max-w-md">
+                        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                            <svg className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </div>
+                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Data Available</h3>
+                        <p className="text-gray-600 dark:text-gray-300 mb-6">
+                            Please click <strong>Resync Data</strong> in Settings to load your information.
+                        </p>
                     </div>
                 </main>
             </div>

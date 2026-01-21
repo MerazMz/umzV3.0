@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, RefreshCw } from 'lucide-react';
 
-const CaptchaModal = ({ isOpen, onClose, captchaImage, onSubmit, loading }) => {
+const CaptchaModal = ({ isOpen, onClose, captchaImage, onSubmit, onReload, loading }) => {
     const [captcha, setCaptcha] = useState('');
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSubmit(captcha);
+        if (captcha.trim()) {
+            onSubmit(captcha.toUpperCase());
+        }
     };
 
     const handleClose = () => {
@@ -35,7 +37,7 @@ const CaptchaModal = ({ isOpen, onClose, captchaImage, onSubmit, loading }) => {
                     <button
                         onClick={handleClose}
                         disabled={loading}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                        className="cursor-pointer p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
                         aria-label="Close"
                     >
                         <X className="h-5 w-5 text-gray-500" />
@@ -44,13 +46,26 @@ const CaptchaModal = ({ isOpen, onClose, captchaImage, onSubmit, loading }) => {
 
                 {/* Captcha Image */}
                 <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Captcha</label>
+                    <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium text-gray-700">Captcha</label>
+                        {onReload && (
+                            <button
+                                type="button"
+                                onClick={onReload}
+                                disabled={loading}
+                                className="cursor-pointer p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Reload captcha"
+                            >
+                                <RefreshCw className={`h-4 w-4 text-gray-600 ${loading ? 'animate-spin' : ''}`} />
+                            </button>
+                        )}
+                    </div>
                     <div className="flex justify-center p-4 bg-gray-50 border border-gray-200 rounded-xl">
                         {captchaImage ? (
                             <img
                                 src={captchaImage}
                                 alt="Captcha"
-                                className="max-h-20 object-contain"
+                                className="max-h-20 object-contain scale-180 rounded-md"
                             />
                         ) : (
                             <div className="h-20 flex items-center justify-center">
@@ -65,14 +80,18 @@ const CaptchaModal = ({ isOpen, onClose, captchaImage, onSubmit, loading }) => {
                     <div className="space-y-2">
                         <input
                             type="text"
-                            placeholder="Enter captcha text"
+                            placeholder="Enter captcha"
                             value={captcha}
-                            onChange={(e) => setCaptcha(e.target.value)}
+                            onChange={(e) => setCaptcha(e.target.value.toUpperCase())}
                             required
                             disabled={loading}
                             autoFocus
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                            autoComplete="off"
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed font-mono text-lg uppercase"
                         />
+                        {/* <p className="text-xs text-gray-500">
+                            Characters are automatically converted to uppercase
+                        </p> */}
                     </div>
 
                     <div className="flex gap-3">
@@ -80,14 +99,14 @@ const CaptchaModal = ({ isOpen, onClose, captchaImage, onSubmit, loading }) => {
                             type="button"
                             onClick={handleClose}
                             disabled={loading}
-                            className="flex-1 px-4 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                            className="cursor-pointer flex-1 px-4 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={loading || !captcha}
-                            className="flex-1 px-4 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                            className="cursor-pointer flex-1 px-4 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                         >
                             {loading ? 'Verifying...' : 'Verify'}
                         </button>

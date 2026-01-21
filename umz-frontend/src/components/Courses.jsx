@@ -12,14 +12,7 @@ const Courses = () => {
 
     useEffect(() => {
         const fetchData = async () => {
-            const cookies = localStorage.getItem('umz_cookies');
-
-            if (!cookies) {
-                navigate('/');
-                return;
-            }
-
-            // Check if we have cached courses data
+            // First, always check for cached data
             const cachedCourses = localStorage.getItem('umz_courses_data');
             if (cachedCourses) {
                 try {
@@ -27,14 +20,26 @@ const Courses = () => {
                     console.log('📦 Using cached courses data');
                     setCourses(parsed);
                     setLoading(false);
-                    return;
+                    return; // Use cache, don't fetch
                 } catch (e) {
                     console.error('Error parsing cached courses data:', e);
                     localStorage.removeItem('umz_courses_data');
                 }
             }
 
-            // Fetch fresh data if no cache
+            // No cache available - check if we have cookies
+            const cookies = localStorage.getItem('umz_cookies');
+
+            if (!cookies) {
+                // No cookies and no cache - show empty state
+                console.log('⚠️ No cookies and no cached courses');
+                setLoading(false);
+                setError('');
+                setCourses([]);
+                return;
+            }
+
+            // We have cookies but no cache - fetch fresh data
             try {
                 setLoading(true);
                 console.log('🌐 Fetching fresh courses from API');
@@ -48,10 +53,8 @@ const Courses = () => {
             } catch (err) {
                 setError(err.message);
                 if (err.message.includes('session') || err.message.includes('unauthorized')) {
+                    // Session expired - remove cookies
                     localStorage.removeItem('umz_cookies');
-                    localStorage.removeItem('umz_student_info');
-                    localStorage.removeItem('umz_courses_data');
-                    navigate('/');
                 }
             } finally {
                 setLoading(false);

@@ -17,26 +17,32 @@ const CGPA = () => {
 
     useEffect(() => {
         const fetchData = async () => {
-            const cookies = localStorage.getItem('umz_cookies');
-
-            if (!cookies) {
-                navigate('/');
-                return;
-            }
-
-            // Check for cached student info
+            // First, always check for cached data
             const cachedInfo = localStorage.getItem('umz_student_info');
             if (cachedInfo) {
                 try {
                     const parsed = JSON.parse(cachedInfo);
                     setStudentInfo(parsed);
                     setLoading(false);
-                    return;
+                    return; // Use cache, don't fetch
                 } catch {
                     localStorage.removeItem('umz_student_info');
                 }
             }
 
+            // No cache available - check if we have cookies
+            const cookies = localStorage.getItem('umz_cookies');
+
+            if (!cookies) {
+                // No cookies and no cache - show empty state
+                console.log('⚠️ No cookies and no cached student info');
+                setLoading(false);
+                setError('');
+                setStudentInfo(null);
+                return;
+            }
+
+            // We have cookies but no cache - fetch fresh data
             try {
                 setLoading(true);
                 const result = await getStudentInfo(cookies);
@@ -46,9 +52,8 @@ const CGPA = () => {
             } catch (err) {
                 setError(err.message || 'Failed to load CGPA data');
                 if (err.message?.includes('session') || err.message?.includes('unauthorized')) {
+                    // Session expired - remove cookies
                     localStorage.removeItem('umz_cookies');
-                    localStorage.removeItem('umz_student_info');
-                    navigate('/');
                 }
             } finally {
                 setLoading(false);

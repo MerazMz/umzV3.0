@@ -17,25 +17,32 @@ const Attendance = () => {
 
     useEffect(() => {
         const fetchAttendance = async () => {
-            const cookies = localStorage.getItem('umz_cookies');
-
-            if (!cookies) {
-                navigate('/');
-                return;
-            }
-
+            // First, always check for cached data
             const cachedData = localStorage.getItem('umz_attendance_data');
             if (cachedData) {
                 try {
                     const parsed = JSON.parse(cachedData);
                     setAttendanceData(parsed);
                     setLoading(false);
-                    return;
+                    return; // Use cache, don't fetch
                 } catch {
                     localStorage.removeItem('umz_attendance_data');
                 }
             }
 
+            // No cache available - check if we have cookies
+            const cookies = localStorage.getItem('umz_cookies');
+
+            if (!cookies) {
+                // No cookies and no cache - show empty state
+                console.log('⚠️ No cookies and no cached attendance');
+                setLoading(false);
+                setError('');
+                setAttendanceData([]);
+                return;
+            }
+
+            // We have cookies but no cache - fetch fresh data
             try {
                 setLoading(true);
                 const result = await getAttendanceDetails(cookies);
@@ -51,9 +58,8 @@ const Attendance = () => {
                     err.message?.includes('session') ||
                     err.message?.includes('unauthorized')
                 ) {
+                    // Session expired - remove cookies
                     localStorage.removeItem('umz_cookies');
-                    localStorage.removeItem('umz_attendance_data');
-                    navigate('/');
                 }
             } finally {
                 setLoading(false);
@@ -198,8 +204,8 @@ const Attendance = () => {
                                             key={key}
                                             onClick={() => setSortBy(key)}
                                             className={`px-4 py-2 rounded-lg text-sm font-medium ${sortBy === key
-                                                    ? 'bg-gray-900 text-white'
-                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                ? 'bg-gray-900 text-white'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                                 }`}
                                         >
                                             {key[0].toUpperCase() + key.slice(1)}
@@ -218,8 +224,8 @@ const Attendance = () => {
                                             key={key}
                                             onClick={() => setFilterStatus(key)}
                                             className={`px-4 py-2 rounded-lg text-sm font-medium ${filterStatus === key
-                                                    ? 'bg-gray-900 text-white'
-                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                ? 'bg-gray-900 text-white'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                                 }`}
                                         >
                                             {key[0].toUpperCase() + key.slice(1)}
@@ -367,8 +373,8 @@ const Attendance = () => {
                                             <p className="text-xs text-gray-600">{r.faculty}</p>
                                             <span
                                                 className={`px-3 py-1 rounded-lg text-xs font-semibold ${r.status === 'P'
-                                                        ? 'bg-green-100 text-green-800'
-                                                        : 'bg-red-100 text-red-800'
+                                                    ? 'bg-green-100 text-green-800'
+                                                    : 'bg-red-100 text-red-800'
                                                     }`}
                                             >
                                                 {r.status === 'P' ? 'Present' : 'Absent'}

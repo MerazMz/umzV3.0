@@ -14,26 +14,32 @@ const Marks = () => {
 
     useEffect(() => {
         const fetchData = async () => {
-            const cookies = localStorage.getItem('umz_cookies');
-
-            if (!cookies) {
-                navigate('/');
-                return;
-            }
-
-            // Check for cached marks data
+            // First, always check for cached data
             const cachedData = localStorage.getItem('umz_marks_data');
             if (cachedData) {
                 try {
                     const parsed = JSON.parse(cachedData);
                     setMarksData(parsed);
                     setLoading(false);
-                    return;
+                    return; // Use cache, don't fetch
                 } catch {
                     localStorage.removeItem('umz_marks_data');
                 }
             }
 
+            // No cache available - check if we have cookies
+            const cookies = localStorage.getItem('umz_cookies');
+
+            if (!cookies) {
+                // No cookies and no cache - show empty state
+                console.log('⚠️ No cookies and no cached marks');
+                setLoading(false);
+                setError('');
+                setMarksData([]);
+                return;
+            }
+
+            // We have cookies but no cache - fetch fresh data
             try {
                 setLoading(true);
                 const result = await getMarks(cookies);
@@ -43,9 +49,8 @@ const Marks = () => {
             } catch (err) {
                 setError(err.message || 'Failed to load marks');
                 if (err.message?.includes('session') || err.message?.includes('unauthorized')) {
+                    // Session expired - remove cookies
                     localStorage.removeItem('umz_cookies');
-                    localStorage.removeItem('umz_marks_data');
-                    navigate('/');
                 }
             } finally {
                 setLoading(false);
