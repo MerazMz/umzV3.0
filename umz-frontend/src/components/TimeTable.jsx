@@ -1,16 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock } from 'lucide-react';
+import { Calendar, Clock, Download } from 'lucide-react';
 import Sidebar from './Sidebar';
 import { getTimeTable } from '../services/api';
+import { generateTimetablePDF } from '../utils/generateTimetablePDF';
 
 const TimeTable = () => {
     const navigate = useNavigate();
     const [timetable, setTimetable] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [downloadLoading, setDownloadLoading] = useState(false);
 
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    // Handle PDF download
+    const handleDownloadPDF = () => {
+        try {
+            setDownloadLoading(true);
+
+            // Get student name from localStorage
+            const studentInfo = localStorage.getItem('umz_student_info');
+            let studentName = 'Student';
+
+            if (studentInfo) {
+                try {
+                    const parsed = JSON.parse(studentInfo);
+                    studentName = parsed.name || 'Student';
+                } catch (e) {
+                    console.error('Error parsing student info:', e);
+                }
+            }
+
+            // Generate PDF
+            generateTimetablePDF(timetable, studentName);
+        } catch (error) {
+            console.error('Error downloading PDF:', error);
+            alert('Failed to download PDF. Please try again.');
+        } finally {
+            setDownloadLoading(false);
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -146,14 +176,30 @@ const TimeTable = () => {
             <main className="flex-1 overflow-y-auto p-6 lg:p-10">
                 <div className="max-w-7xl mx-auto space-y-6">
                     {/* Header */}
-                    <div className="flex items-center gap-3 mb-8">
-                        <div className="p-3 bg-gray-900 rounded-xl">
-                            <Calendar className="h-6 w-6 text-white" />
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 bg-gray-900 rounded-xl">
+                                <Calendar className="h-6 w-6 text-white" />
+                            </div>
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900">Time Table</h1>
+                                <p className="text-gray-500">Your weekly class schedule</p>
+                            </div>
                         </div>
-                        <div>
-                            <h1 className="text-3xl font-bold text-gray-900">Time Table</h1>
-                            <p className="text-gray-500">Your weekly class schedule</p>
-                        </div>
+
+                        {/* Download PDF Button */}
+                        {Object.keys(timetable).length > 0 && (
+                            <button
+                                onClick={handleDownloadPDF}
+                                disabled={downloadLoading}
+                                className="flex items-center gap-2 px-4 py-2.5  text-white rounded-xl bg-gray-900 hover:scale-105 hover:shadow-xl cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                            >
+                                <Download className="h-4 w-4" />
+                                {/* <span className="font-medium">
+                                    {downloadLoading ? 'Generating...' : 'Download PDF'}
+                                </span> */}
+                            </button>
+                        )}
                     </div>
 
                     {/* Timetable Grid */}

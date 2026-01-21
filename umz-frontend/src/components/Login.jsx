@@ -29,6 +29,13 @@ const Login = () => {
         const savedTheme = localStorage.getItem('theme') || 'dark';
         setTheme(savedTheme);
         document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+
+        // Load saved credentials from localStorage
+        const savedRegno = localStorage.getItem('umz_regno');
+        const savedPassword = localStorage.getItem('umz_password');
+
+        if (savedRegno) setRegno(savedRegno);
+        if (savedPassword) setPassword(savedPassword);
     }, []);
 
     useEffect(() => {
@@ -82,6 +89,11 @@ const Login = () => {
                 if (result.cookies) {
                     localStorage.setItem('umz_cookies', result.cookies);
                 }
+
+                // Store credentials for future use
+                localStorage.setItem('umz_regno', regno);
+                localStorage.setItem('umz_password', password);
+
                 // Navigate to dashboard
                 navigate('/dashboard');
             }
@@ -154,7 +166,7 @@ const Login = () => {
                         <button
                             key={index}
                             onClick={() => setCurrentSlide(index)}
-                            className={`w-2 h-2 rounded-full transition-all duration-300 ${index === currentSlide
+                            className={`cursor-pointer w-2 h-2 rounded-full transition-all duration-300 ${index === currentSlide
                                 ? 'bg-foreground w-8'
                                 : 'bg-foreground/30 hover:bg-foreground/50'
                                 }`}
@@ -223,7 +235,7 @@ const Login = () => {
                                             <button
                                                 type="button"
                                                 onClick={() => setShowPassword(!showPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                                className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                                                 aria-label={showPassword ? "Hide password" : "Show password"}
                                             >
                                                 {showPassword ? (
@@ -244,7 +256,7 @@ const Login = () => {
                                     <button
                                         type="submit"
                                         disabled={loading}
-                                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 w-full"
+                                        className="cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 w-full"
                                     >
                                         {loading ? 'Loading...' : 'Next'}
                                     </button>
@@ -287,14 +299,14 @@ const Login = () => {
                                             type="button"
                                             onClick={handleBackToStep1}
                                             disabled={loading}
-                                            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11 px-8 flex-1"
+                                            className="cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11 px-8 flex-1"
                                         >
                                             Back
                                         </button>
                                         <button
                                             type="submit"
                                             disabled={loading}
-                                            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 flex-1"
+                                            className="cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 flex-1"
                                         >
                                             {loading ? 'Logging in...' : 'Login'}
                                         </button>

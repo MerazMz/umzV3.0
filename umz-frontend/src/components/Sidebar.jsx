@@ -18,6 +18,8 @@ import {
     Sun,
     Moon
 } from 'lucide-react';
+import { startLogin, completeLogin } from '../services/api';
+import CaptchaModal from './CaptchaModal';
 
 const Sidebar = () => {
     const navigate = useNavigate();
@@ -30,6 +32,12 @@ const Sidebar = () => {
     const [studentEmail, setStudentEmail] = useState('');
     const [studentPhoto, setStudentPhoto] = useState('');
     const settingsRef = useRef(null);
+
+    // Captcha modal state
+    const [showCaptchaModal, setShowCaptchaModal] = useState(false);
+    const [captchaImage, setCaptchaImage] = useState('');
+    const [sessionId, setSessionId] = useState('');
+    const [captchaLoading, setCaptchaLoading] = useState(false);
 
     // Handle click outside settings dropdown
     useEffect(() => {
@@ -112,18 +120,80 @@ const Sidebar = () => {
         navigate('/');
     };
 
-    const handleResync = () => {
-        // Clear all cached data (but keep cookies and session)
-        localStorage.removeItem('umz_student_info');
-        localStorage.removeItem('umz_attendance_data');
-        localStorage.removeItem('umz_marks_data');
-        localStorage.removeItem('umz_courses_data');
-        localStorage.removeItem('umz_timetable_data');
+    const handleResync = async () => {
+        try {
+            setIsSettingsOpen(false);
 
-        setIsSettingsOpen(false);
+            // Check if cookies exist
+            const cookies = localStorage.getItem('umz_cookies');
 
-        // Reload the current page to refetch data
-        window.location.reload();
+            if (cookies) {
+                // Cookies exist, just clear cache and reload (normal resync)
+                localStorage.removeItem('umz_student_info');
+                localStorage.removeItem('umz_attendance_data');
+                localStorage.removeItem('umz_marks_data');
+                localStorage.removeItem('umz_courses_data');
+                localStorage.removeItem('umz_timetable_data');
+
+                window.location.reload();
+                return;
+            }
+
+            // No cookies - need to re-authenticate
+            // Get stored credentials
+            const savedRegno = localStorage.getItem('umz_regno');
+            const savedPassword = localStorage.getItem('umz_password');
+
+            if (!savedRegno || !savedPassword) {
+                // No credentials stored, logout and go to login page
+                alert('Session expired and no stored credentials found. Please login again.');
+                handleLogout();
+                return;
+            }
+
+            // Start login process with stored credentials
+            setCaptchaLoading(true);
+            const result = await startLogin(savedRegno, savedPassword);
+
+            setSessionId(result.sessionId);
+            setCaptchaImage(result.captchaImage);
+            setShowCaptchaModal(true);
+            setCaptchaLoading(false);
+        } catch (error) {
+            setCaptchaLoading(false);
+            console.error('Error during resync:', error);
+            alert('Failed to start resync. Please try again or login manually.');
+        }
+    };
+
+    const handleCaptchaSubmit = async (captcha) => {
+        try {
+            setCaptchaLoading(true);
+            const result = await completeLogin(sessionId, captcha);
+
+            if (result.success) {
+                // Store new cookies
+                if (result.cookies) {
+                    localStorage.setItem('umz_cookies', result.cookies);
+                }
+
+                // Clear cached data
+                localStorage.removeItem('umz_student_info');
+                localStorage.removeItem('umz_attendance_data');
+                localStorage.removeItem('umz_marks_data');
+                localStorage.removeItem('umz_courses_data');
+                localStorage.removeItem('umz_timetable_data');
+
+                // Close modal and reload
+                setShowCaptchaModal(false);
+                setCaptchaLoading(false);
+                window.location.reload();
+            }
+        } catch (error) {
+            setCaptchaLoading(false);
+            alert('Invalid captcha. Please try again.');
+            console.error('Error completing login:', error);
+        }
     };
 
     const handleThemeToggle = () => {
@@ -175,7 +245,7 @@ const Sidebar = () => {
             {/* Mobile Toggle Button */}
             <button
                 onClick={() => setIsMobileOpen(!isMobileOpen)}
-                className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
+                className="cursor-pointer lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
                 aria-label="Toggle menu"
             >
                 {isMobileOpen ? (
@@ -265,8 +335,8 @@ const Sidebar = () => {
                                                                         }
                                                                     }}
                                                                     className={`cursor-not-allowed flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${theme === 'light'
-                                                                            ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
-                                                                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                                                                        ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                                                                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                                                                         }`}
                                                                 >
                                                                     <Sun className="h-4 w-4" />
@@ -281,8 +351,8 @@ const Sidebar = () => {
                                                                         }
                                                                     }}
                                                                     className={`cursor-not-allowed flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${theme === 'dark'
-                                                                            ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
-                                                                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                                                                        ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                                                                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                                                                         }`}
                                                                 >
                                                                     <Moon className="h-4 w-4" />
@@ -398,6 +468,31 @@ const Sidebar = () => {
                     </div>
                 </div>
             </aside>
+
+            {/* Loading Overlay - Shows while fetching captcha */}
+            {captchaLoading && !showCaptchaModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4">
+                        <div className="relative w-16 h-16">
+                            <div className="absolute inset-0 border-4 border-gray-200 rounded-full"></div>
+                            <div className="absolute inset-0 border-4 border-gray-900 rounded-full border-t-transparent animate-spin"></div>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-lg font-semibold text-gray-900">Initializing Login</p>
+                            <p className="text-sm text-gray-500 mt-1">Please wait...</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Captcha Modal */}
+            <CaptchaModal
+                isOpen={showCaptchaModal}
+                onClose={() => setShowCaptchaModal(false)}
+                captchaImage={captchaImage}
+                onSubmit={handleCaptchaSubmit}
+                loading={captchaLoading}
+            />
         </>
     );
 };
