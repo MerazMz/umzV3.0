@@ -32,7 +32,6 @@ const Marks = () => {
 
             if (!cookies) {
                 // No cookies and no cache - show empty state
-                console.log('⚠️ No cookies and no cached marks');
                 setLoading(false);
                 setError('');
                 setMarksData([]);
@@ -160,7 +159,7 @@ const Marks = () => {
                             {/* Graph Toggle Button */}
                             <button
                                 onClick={() => setShowGraph(!showGraph)}
-                                className={`px-4 cursor-pointer py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${showGraph
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${showGraph
                                     ? 'bg-gray-900 text-white'
                                     : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
                                     }`}
@@ -176,7 +175,7 @@ const Marks = () => {
                                             <button
                                                 key={idx}
                                                 onClick={() => setSelectedTermIndex(idx)}
-                                                className={`px-4 cursor-pointer py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${selectedTermIndex === idx
+                                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${selectedTermIndex === idx
                                                     ? 'bg-gray-900 text-white'
                                                     : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
                                                     }`}
@@ -271,7 +270,7 @@ const Marks = () => {
 
                                                         const weightageMatch = mark.weightage.match(/(\d+\.?\d*)/);
                                                         return total + (weightageMatch ? parseFloat(weightageMatch[1]) : 0);
-                                                    }, 0).toFixed(1)}
+                                                    }, 0)}
                                                     <span className="text-gray-400">/100</span>
                                                 </p>
                                                 {/* <p className="text-xs text-gray-500">Total Marks</p> */}

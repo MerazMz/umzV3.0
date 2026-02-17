@@ -6,6 +6,7 @@ import Marks from './components/Marks';
 import CGPA from './components/CGPA';
 import TimeTable from './components/TimeTable';
 import Courses from './components/Courses';
+import Ranking from './components/Ranking';
 import './App.css';
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
         <Route path="/cgpa" element={<CGPA />} />
         <Route path="/time-table" element={<TimeTable />} />
         <Route path="/courses" element={<Courses />} />
+        <Route path="/ranking" element={<Ranking />} />
       </Routes>
     </BrowserRouter>
   );

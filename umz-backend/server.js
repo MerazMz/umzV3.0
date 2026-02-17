@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import axios from 'axios';
 import { chromium } from 'playwright';
 import { v4 as uuidv4 } from 'uuid';
 import SessionPool from './src/utils/SessionPool.js';
@@ -12,6 +13,8 @@ import { fetchTermWiseMarks } from './src/modules/TermWiseMarks.js';
 import { fetchStudentMessages } from './src/modules/GetStudentMessages.js';
 import { fetchTimeTable } from './src/modules/GetTimeTable.js';
 import { fetchStudentCourses } from './src/modules/GetStudentCourses.js';
+import { fetchStudentSeatingPlan } from './src/modules/GetSeatingPlan.js';
+import { fetchPasswordExpiry } from './src/modules/GetPasswordExpiry.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -186,6 +189,12 @@ app.post('/api/complete-login', async (req, res) => {
         await pwdField.type(password, { delay: 100 });
         await page.waitForTimeout(600);
 
+        // Select Dashboard option in dropdown
+        // console.log('📋 Selecting Dashboard option...');
+        const dropdown = page.locator('select[name="ddlStartWith"]');
+        await dropdown.selectOption({ value: 'StudentDashboard.aspx' });
+        await page.waitForTimeout(300);
+
         // Click login button
         console.log('🔘 Clicking login...');
         const loginButton = page.locator('input[type="submit"][value="Login"]');
@@ -254,18 +263,20 @@ app.post('/api/student-info', async (req, res) => {
         // Create axios client with cookies
         const axiosClient = createAxiosClient(cookies);
 
-        // Fetch student basic information, term-wise CGPA, and messages in parallel
-        const [studentInfo, termwiseCGPA, messages] = await Promise.all([
+        // Fetch student basic information, term-wise CGPA, messages, and password expiry in parallel
+        const [studentInfo, termwiseCGPA, messages, passwordExpiry] = await Promise.all([
             fetchStudentBasicInformation(axiosClient),
             fetchTermwiseCGPA(axiosClient),
-            fetchStudentMessages(axiosClient)
+            fetchStudentMessages(axiosClient),
+            fetchPasswordExpiry(axiosClient)
         ]);
 
         // Combine the data
         const combinedData = {
             ...studentInfo,
             TermwiseCGPA: termwiseCGPA,
-            Messages: messages
+            Messages: messages,
+            PasswordExpiry: passwordExpiry
         };
 
         return res.json({
@@ -506,6 +517,85 @@ app.post('/api/courses', async (req, res) => {
         return res.status(500).json({
             success: false,
             error: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/seating-plan
+ * Fetch student seating plan using stored cookies
+ */
+app.post('/api/seating-plan', async (req, res) => {
+    const { cookies } = req.body;
+
+    if (!cookies) {
+        return res.status(400).json({
+            success: false,
+            error: 'Cookies are required'
+        });
+    }
+
+    try {
+        console.log('🪑 Fetching student seating plan...');
+
+        const axiosClient = createAxiosClient(cookies);
+        const seatingPlanData = await fetchStudentSeatingPlan(axiosClient);
+
+        console.log(`✅ Seating plan fetched successfully. Items: ${seatingPlanData?.length || 0}`);
+        console.log('📤 Sending response:', JSON.stringify({
+            success: true,
+            data: seatingPlanData
+        }).substring(0, 300));
+
+        return res.json({
+            success: true,
+            data: seatingPlanData
+        });
+
+    } catch (error) {
+        console.error('❌ Error fetching seating plan:', error.message);
+        console.error('Stack:', error.stack);
+
+        return res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/ranking
+ * Proxy endpoint for student ranking - avoids CORS issues
+ */
+app.post('/api/ranking', async (req, res) => {
+    const { registrationNumber } = req.body;
+
+    if (!registrationNumber) {
+        return res.status(400).json({
+            success: false,
+            error: 'Registration number is required'
+        });
+    }
+
+    try {
+        console.log(`🏆 Fetching ranking for: ${registrationNumber}`);
+
+        const response = await axios.post(
+            'https://lpu-student-ranking.vercel.app/get-student-info',
+            { registrationNumber }
+        );
+
+        return res.json({
+            success: true,
+            data: response.data
+        });
+
+    } catch (error) {
+        console.error('❌ Error fetching ranking:', error.message);
+
+        return res.status(error.response?.status || 500).json({
+            success: false,
+            error: error.response?.data?.message || error.message
         });
     }
 });

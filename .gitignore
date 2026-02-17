@@ -12,3 +12,4 @@ coverage/
 .idea/
 Thumbs.db
 umz-backend/test-pool.js
+httpumz

@@ -8,7 +8,7 @@ import fs from 'fs';
 export async function startLoginProcess(regno, password) {
     console.log('🌐 Opening browser for login...');
 
-    const browser = await playwright.chromium.launch({ headless: true });
+    const browser = await playwright.chromium.launch({ headless: false });
     const context = await browser.newContext();
     const page = await context.newPage();
 

@@ -26,7 +26,7 @@ const TimeTable = () => {
             if (studentInfo) {
                 try {
                     const parsed = JSON.parse(studentInfo);
-                    studentName = parsed.name || 'Student';
+                    studentName = parsed.StudentName || 'Student';
                 } catch (e) {
                     console.error('Error parsing student info:', e);
                 }

@@ -16,10 +16,13 @@ import {
     LogOut,
     RefreshCw,
     Sun,
-    Moon
+    Moon,
+    Trophy,
+    Eye
 } from 'lucide-react';
 import { startLogin, completeLogin, getStudentInfo } from '../services/api';
 import CaptchaModal from './CaptchaModal';
+import PrivacySettingsModal from './PrivacySettingsModal';
 
 const Sidebar = () => {
     const navigate = useNavigate();
@@ -27,6 +30,7 @@ const Sidebar = () => {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
     const [theme, setTheme] = useState('light');
     const [studentName, setStudentName] = useState('Student');
     const [studentEmail, setStudentEmail] = useState('');
@@ -257,6 +261,7 @@ const Sidebar = () => {
                 { name: "Marks", icon: FileText, path: "/marks" },
                 { name: "Cgpa", icon: Award, path: "/cgpa" },
                 { name: "Time Table", icon: Calendar, path: "/time-table" },
+                { name: "Ranking", icon: Trophy, path: "/ranking" },
             ]
         },
         {
@@ -399,6 +404,20 @@ const Sidebar = () => {
                                                         </div>
 
                                                         <button
+                                                            onClick={() => {
+                                                                setIsPrivacyModalOpen(true);
+                                                                setIsSettingsOpen(false);
+                                                            }}
+                                                            className="cursor-pointer w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                                                        >
+                                                            <Eye className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+                                                            <div>
+                                                                <p className="text-sm font-medium text-gray-900 dark:text-white">Privacy</p>
+                                                                <p className="text-xs text-gray-500 dark:text-gray-300">Control visibility</p>
+                                                            </div>
+                                                        </button>
+
+                                                        <button
                                                             onClick={handleResync}
                                                             className="cursor-pointer w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
                                                         >
@@ -530,6 +549,12 @@ const Sidebar = () => {
                 onSubmit={handleCaptchaSubmit}
                 onReload={handleReloadCaptcha}
                 loading={captchaLoading}
+            />
+
+            {/* Privacy Settings Modal */}
+            <PrivacySettingsModal
+                isOpen={isPrivacyModalOpen}
+                onClose={() => setIsPrivacyModalOpen(false)}
             />
         </>
     );

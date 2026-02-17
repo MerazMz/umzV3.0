@@ -5,7 +5,7 @@ import jsPDF from 'jspdf';
  * @param {Object} timetableData - Timetable data organized by day
  * @param {string} studentName - Student's name for the header
  */
-export const generateTimetablePDF = (timetableData, studentName = 'Student') => {
+export const generateTimetablePDF = (timetableData, studentName) => {
     try {
         // Create new PDF document
         const doc = new jsPDF({

@@ -21,7 +21,7 @@ export async function loginWithPlaywright(regno, password, captchaText = null) {
     } else {
         // Fresh login (CLI flow)
         console.log('🌐 Opening browser for login...');
-        browser = await chromium.launch({ headless: true });
+        browser = await chromium.launch({ headless: false });
 
         try {
             const context = await browser.newContext({
@@ -78,6 +78,12 @@ export async function loginWithPlaywright(regno, password, captchaText = null) {
         await page.waitForTimeout(200);
         await pwdField.type(password, { delay: 100 });
         await page.waitForTimeout(600);
+
+        // Select Dashboard option in dropdown
+        console.log('📋 Selecting Dashboard option...');
+        const dropdown = page.locator('select[name="ddlStartWith"]');
+        await dropdown.selectOption({ value: 'StudentDashboard.aspx' });
+        await page.waitForTimeout(300);
 
         // Click login button
         console.log('🔘 Clicking login...');

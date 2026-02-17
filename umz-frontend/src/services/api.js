@@ -186,3 +186,43 @@ export async function getCourses(cookies) {
     return data;
 }
 
+/**
+ * Get student seating plan
+ * @param {string} cookies - Session cookies
+ * @returns {Promise<{success: boolean, data: Array}>}
+ */
+export async function getSeatingPlan(cookies) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/seating-plan`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ cookies }),
+        });
+
+        // Log the raw response for debugging
+        const responseText = await response.text();
+        // console.log('🔍 Raw seating plan response:', responseText.substring(0, 500));
+
+        // Try to parse as JSON
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('❌ JSON parse error:', parseError);
+            console.error('Response was:', responseText);
+            throw new Error('Invalid JSON response from server');
+        }
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to fetch seating plan');
+        }
+
+        return data;
+    } catch (error) {
+        console.error('❌ Error in getSeatingPlan:', error);
+        throw error;
+    }
+}
+
