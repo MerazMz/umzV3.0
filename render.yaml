@@ -5,9 +5,10 @@ services:
     env: docker
     region: oregon
     plan: free
+    dockerfilePath: ./umz-backend/Dockerfile
+    dockerContext: ./umz-backend
     envVars:
       - key: NODE_ENV
         value: production
       - key: FRONTEND_URL
-        sync: false
-        # Add this manually in Render dashboard after deploying frontend
+        value: https://umz.vercel.app
