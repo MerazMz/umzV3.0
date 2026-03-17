@@ -5,8 +5,6 @@ services:
     env: docker
     region: oregon
     plan: free
-    buildCommand: npm install
-    startCommand: npm run server
     envVars:
       - key: NODE_ENV
         value: production
