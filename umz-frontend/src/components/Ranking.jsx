@@ -29,7 +29,7 @@ const Ranking = () => {
         setStudentData(null);
 
         try {
-            const url = "http://localhost:3001/api/ranking";
+            const url = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'}/ranking`;
             const payload = { registrationNumber: regno };
 
             const response = await axios.post(url, payload);
