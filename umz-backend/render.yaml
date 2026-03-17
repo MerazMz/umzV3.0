@@ -2,7 +2,7 @@
 services:
   - type: web
     name: umz-backend
-    env: node
+    env: docker
     region: oregon
     plan: free
     buildCommand: npm install
