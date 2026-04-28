@@ -25,6 +25,11 @@ export async function fetchStudentAttendanceDetail(client) {
         const $ = cheerio.load(html);
         const courses = [];
 
+        // Track seen course codes so we keep only the FIRST block per course.
+        // UMS returns one block per lecture slot/batch, so the same courseCode
+        // can appear many times — merging them inflates totals into the thousands.
+        const seenCodes = new Set();
+
         $('div.border').each((_, courseDiv) => {
             try {
                 const $div = $(courseDiv);
@@ -35,6 +40,12 @@ export async function fetchStudentAttendanceDetail(client) {
                 // More flexible regex to match course code
                 const codeMatch = courseHeading.match(/Course\s*code\s*:\s*([A-Z0-9]+)/i);
                 const courseCode = codeMatch ? codeMatch[1].trim() : (courseHeading || 'UNKNOWN');
+
+                // Skip if we've already added this course
+                if (seenCodes.has(courseCode)) {
+                    console.log(`⚠️  Skipping duplicate block for: ${courseCode}`);
+                    return;
+                }
 
                 const attendanceRecords = [];
 
@@ -66,6 +77,7 @@ export async function fetchStudentAttendanceDetail(client) {
                         records: attendanceRecords
                     };
                     courses.push(courseData);
+                    seenCodes.add(courseCode);
                     console.log(`✅ Added course: ${courseCode} (${courseData.presentCount}/${courseData.totalRecords})`);
                 }
             } catch (courseError) {

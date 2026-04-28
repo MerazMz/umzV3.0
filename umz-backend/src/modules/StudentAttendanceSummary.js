@@ -27,8 +27,13 @@ export async function fetchStudentAttendanceSummary(client) {
     if (cols.length === 6) {
       const [course, lastDate, od, total, present, percent] = cols;
 
+      // Extract course code from the course title text (e.g. "CHEM201 - Chemistry" → "CHEM201")
+      const codeMatch = course.match(/\b([A-Z]{2,}[0-9]{2,}[A-Z0-9]*)\b/);
+      const courseCode = codeMatch ? codeMatch[1] : null;
+
       rows.push({
         course,
+        courseCode,
         lastDate,
         od,
         total,

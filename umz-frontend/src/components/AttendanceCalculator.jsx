@@ -29,7 +29,16 @@ const AttendanceCalculator = () => {
             }
 
             const parsed = JSON.parse(cachedData);
-            setAttendanceData(parsed || []);
+
+            // De-duplicate: keep only FIRST occurrence of each courseCode
+            const seenCodes = new Set();
+            const uniqueParsed = (parsed || []).filter(item => {
+                if (seenCodes.has(item.courseCode)) return false;
+                seenCodes.add(item.courseCode);
+                return true;
+            });
+
+            setAttendanceData(uniqueParsed || []);
 
             // Try to load saved calculator inputs
             const cachedInputs = localStorage.getItem('umz_calculator_inputs');
@@ -39,7 +48,7 @@ const AttendanceCalculator = () => {
                 try {
                     const savedInputs = JSON.parse(cachedInputs);
                     // Verify that saved inputs match current courses
-                    const currentCourseCodes = (parsed || []).map(item => item.courseCode);
+                    const currentCourseCodes = (uniqueParsed || []).map(item => item.courseCode);
                     const savedCourseCodes = Object.keys(savedInputs);
 
                     // If courses match, use saved inputs
@@ -52,12 +61,19 @@ const AttendanceCalculator = () => {
             }
 
             // Initialize inputs with default values for any courses not in cache
-            (parsed || []).forEach(item => {
+            (uniqueParsed || []).forEach(item => {
                 // Only initialize if not already in cached inputs
                 if (!initialInputs[item.courseCode]) {
-                    const currentPercentage = item.totalRecords > 0
-                        ? (item.presentCount / item.totalRecords) * 100
-                        : 0;
+                    // Prefer UMS-official percent; fall back to calculated
+                    let currentPercentage;
+                    if (item.summaryPercent != null) {
+                        const val = parseFloat(String(item.summaryPercent).replace('%', ''));
+                        currentPercentage = isNaN(val) ? 0 : val;
+                    } else {
+                        currentPercentage = item.totalRecords > 0
+                            ? (item.presentCount / item.totalRecords) * 100
+                            : 0;
+                    }
 
                     initialInputs[item.courseCode] = {
                         startDate: '',
@@ -75,6 +91,17 @@ const AttendanceCalculator = () => {
             setError('Failed to load attendance data from cache.');
             setLoading(false);
         }
+    };
+
+    // Use UMS-official percent from summary when available; fall back to calculated.
+    const getPercentage = (item) => {
+        if (item.summaryPercent != null) {
+            const val = parseFloat(String(item.summaryPercent).replace('%', ''));
+            if (!isNaN(val)) return val;
+        }
+        return item.totalRecords > 0
+            ? (item.presentCount / item.totalRecords) * 100
+            : 0;
     };
 
     const updateInput = (courseCode, field, value) => {
@@ -250,9 +277,7 @@ const AttendanceCalculator = () => {
                                     <div>
                                         <p className="text-xs text-gray-500">Current %</p>
                                         <p className="text-lg font-bold">
-                                            {subject.totalRecords > 0
-                                                ? ((subject.presentCount / subject.totalRecords) * 100).toFixed(2)
-                                                : 0}%
+                                            {getPercentage(subject).toFixed(2)}%
                                         </p>
                                     </div>
                                     <div>

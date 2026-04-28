@@ -54,6 +54,21 @@ function cleanupExpiredSessions() {
 setInterval(cleanupExpiredSessions, 60 * 1000);
 
 /**
+ * GET /api/health
+ * Health check endpoint
+ */
+app.get('/api/health', (req, res) => {
+    res.json({
+        success: true,
+        message: 'UMZ Backend is running',
+        timestamp: new Date().toISOString(),
+        activeSessions: sessions.size,
+        poolStatus: sessionPool.getStatus()
+    });
+});
+
+
+/**
  * POST /api/start-login
  * Start the login process - fill regno and get captcha
  */
@@ -358,12 +373,39 @@ app.post('/api/attendance-details', async (req, res) => {
         // Create axios client with cookies
         const axiosClient = createAxiosClient(cookies);
 
-        // Fetch detailed attendance
-        const attendanceDetail = await fetchStudentAttendanceDetail(axiosClient);
+        // Fetch detail and summary in parallel so we can use UMS's official percent per subject
+        const [attendanceDetail, attendanceSummary] = await Promise.all([
+            fetchStudentAttendanceDetail(axiosClient),
+            fetchStudentAttendanceSummary(axiosClient)
+        ]);
+
+        // Build a lookup map: courseCode → summary row (for fast matching)
+        const summaryMap = new Map();
+        for (const row of attendanceSummary) {
+            if (row.courseCode) {
+                summaryMap.set(row.courseCode, row);
+            }
+        }
+
+        // Merge the official UMS percent + duty leave + lastDate into each detail course
+        const merged = attendanceDetail.map(course => {
+            const summaryRow = summaryMap.get(course.courseCode);
+            return {
+                ...course,
+                // UMS-official percentage string (e.g. "82.35%") from summary; null if not matched
+                summaryPercent: summaryRow ? summaryRow.percent  : null,
+                // Duty leave / OD count from summary
+                od:             summaryRow ? summaryRow.od       : null,
+                // Last attendance date from summary
+                lastDate:       summaryRow ? summaryRow.lastDate : null,
+                // Full course title from summary
+                courseTitle:    summaryRow ? summaryRow.course   : null,
+            };
+        });
 
         return res.json({
             success: true,
-            data: attendanceDetail
+            data: merged
         });
 
     } catch (error) {

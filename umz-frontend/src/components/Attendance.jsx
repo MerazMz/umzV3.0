@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Info, X, Calculator } from 'lucide-react';
+import { ChevronRight, X, Calculator, BarChart2 } from 'lucide-react';
 import Sidebar from './Sidebar';
 import { getAttendanceDetails } from '../services/api';
 import AttendanceCalculator from './AttendanceCalculator';
@@ -16,55 +16,54 @@ const Attendance = () => {
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [activeTab, setActiveTab] = useState(() => {
-        // Load cached tab preference
         const cachedTab = localStorage.getItem('umz_attendance_active_tab');
-        return cachedTab || 'view'; // default to 'view'
+        return cachedTab || 'view';
     });
 
     useEffect(() => {
         const fetchAttendance = async () => {
-            // First, always check for cached data
             const cachedData = localStorage.getItem('umz_attendance_data');
             if (cachedData) {
                 try {
                     const parsed = JSON.parse(cachedData);
-                    setAttendanceData(parsed);
+                    const seenCodes = new Set();
+                    const uniqueParsed = (parsed || []).filter(item => {
+                        if (seenCodes.has(item.courseCode)) return false;
+                        seenCodes.add(item.courseCode);
+                        return true;
+                    });
+                    setAttendanceData(uniqueParsed || []);
                     setLoading(false);
-                    return; // Use cache, don't fetch
+                    return;
                 } catch {
                     localStorage.removeItem('umz_attendance_data');
                 }
             }
 
-            // No cache available - check if we have cookies
             const cookies = localStorage.getItem('umz_cookies');
-
             if (!cookies) {
-                // No cookies and no cache - show empty state
-                console.log('⚠️ No cookies and no cached attendance');
                 setLoading(false);
                 setError('');
                 setAttendanceData([]);
                 return;
             }
 
-            // We have cookies but no cache - fetch fresh data
             try {
                 setLoading(true);
                 const result = await getAttendanceDetails(cookies);
-                setAttendanceData(result.data || []);
-                localStorage.setItem(
-                    'umz_attendance_data',
-                    JSON.stringify(result.data || [])
-                );
+                const rawData = result.data || [];
+                const seenFetched = new Set();
+                const uniqueData = rawData.filter(item => {
+                    if (seenFetched.has(item.courseCode)) return false;
+                    seenFetched.add(item.courseCode);
+                    return true;
+                });
+                setAttendanceData(uniqueData);
+                localStorage.setItem('umz_attendance_data', JSON.stringify(uniqueData));
                 setError('');
             } catch (err) {
                 setError(err.message || 'Failed to load attendance');
-                if (
-                    err.message?.includes('session') ||
-                    err.message?.includes('unauthorized')
-                ) {
-                    // Session expired - remove cookies
+                if (err.message?.includes('session') || err.message?.includes('unauthorized')) {
                     localStorage.removeItem('umz_cookies');
                 }
             } finally {
@@ -75,82 +74,65 @@ const Attendance = () => {
         fetchAttendance();
     }, [navigate]);
 
-    // Cache active tab preference
     useEffect(() => {
         localStorage.setItem('umz_attendance_active_tab', activeTab);
     }, [activeTab]);
 
-    const getAttendanceStatus = (percentage) => {
-        if (percentage >= 75)
-            return {
-                label: 'Good',
-                color: 'bg-green-100 text-green-800',
-                border: 'border-green-200',
-            };
-        if (percentage >= 65)
-            return {
-                label: 'Warning',
-                color: 'bg-yellow-100 text-yellow-800',
-                border: 'border-yellow-200',
-            };
-        return {
-            label: 'Critical',
-            color: 'bg-red-100 text-red-800',
-            border: 'border-red-200',
-        };
+    // Use UMS-official percent from summary when available; fall back to calculated.
+    const getPercentage = (item) => {
+        if (item.summaryPercent != null) {
+            const val = parseFloat(String(item.summaryPercent).replace('%', ''));
+            if (!isNaN(val)) return val;
+        }
+        return item.totalRecords > 0
+            ? (item.presentCount / item.totalRecords) * 100
+            : 0;
+    };
+
+    // Returns { label, statusClass, barColor, textColor }
+    const getStatus = (pct) => {
+        if (pct >= 75) return { label: 'On Track', dot: 'bg-emerald-500', bar: 'bg-emerald-500', text: 'text-emerald-700', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+        if (pct >= 65) return { label: 'At Risk',  dot: 'bg-amber-500',   bar: 'bg-amber-500',   text: 'text-amber-700',   badge: 'bg-amber-50 text-amber-700 border-amber-200'   };
+        return                { label: 'Short',    dot: 'bg-red-500',     bar: 'bg-red-500',     text: 'text-red-700',     badge: 'bg-red-50 text-red-700 border-red-200'         };
     };
 
     const sortedData = [...attendanceData].sort((a, b) => {
-        const pA =
-            a.totalRecords > 0 ? (a.presentCount / a.totalRecords) * 100 : 0;
-        const pB =
-            b.totalRecords > 0 ? (b.presentCount / b.totalRecords) * 100 : 0;
-
         switch (sortBy) {
-            case 'percentage':
-                return pB - pA;
-            case 'lectures':
-                return (b.totalRecords || 0) - (a.totalRecords || 0);
-            default:
-                return (a.courseCode || '').localeCompare(b.courseCode || '');
+            case 'percentage': return getPercentage(b) - getPercentage(a);
+            case 'lectures':   return (b.totalRecords || 0) - (a.totalRecords || 0);
+            default:           return (a.courseCode || '').localeCompare(b.courseCode || '');
         }
     });
 
     const filteredData = sortedData.filter((item) => {
         if (filterStatus === 'all') return true;
-        const percentage =
-            item.totalRecords > 0
-                ? (item.presentCount / item.totalRecords) * 100
-                : 0;
-        if (filterStatus === 'good') return percentage >= 75;
-        if (filterStatus === 'warning')
-            return percentage >= 65 && percentage < 75;
-        if (filterStatus === 'critical') return percentage < 65;
+        const p = getPercentage(item);
+        if (filterStatus === 'good')     return p >= 75;
+        if (filterStatus === 'warning')  return p >= 65 && p < 75;
+        if (filterStatus === 'critical') return p < 65;
         return true;
     });
 
-    const calculateOverallAttendance = () => {
-        if (attendanceData.length === 0) return 0;
-        const total = attendanceData.reduce((sum, item) => {
-            const p =
-                item.totalRecords > 0
-                    ? (item.presentCount / item.totalRecords) * 100
-                    : 0;
-            return sum + p;
-        }, 0);
-        return (total / attendanceData.length).toFixed(2);
+    const overallAttendance = () => {
+        if (attendanceData.length === 0) return '0.00';
+        const sum = attendanceData.reduce((acc, item) => acc + getPercentage(item), 0);
+        return (sum / attendanceData.length).toFixed(2);
+    };
+
+    const counts = {
+        good:     attendanceData.filter(i => getPercentage(i) >= 75).length,
+        warning:  attendanceData.filter(i => getPercentage(i) >= 65 && getPercentage(i) < 75).length,
+        critical: attendanceData.filter(i => getPercentage(i) < 65).length,
     };
 
     if (loading) {
         return (
-            <div className="flex min-h-screen bg-gray-50">
+            <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
                 <Sidebar />
                 <main className="flex-1 flex items-center justify-center">
                     <div className="text-center">
-                        <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-gray-900 border-r-transparent" />
-                        <p className="mt-4 text-sm text-gray-500">
-                            Loading attendance data...
-                        </p>
+                        <div className="inline-block h-7 w-7 animate-spin rounded-full border-2 border-gray-800 dark:border-white border-r-transparent" />
+                        <p className="mt-3 text-sm text-gray-400">Loading attendance…</p>
                     </div>
                 </main>
             </div>
@@ -159,15 +141,13 @@ const Attendance = () => {
 
     if (error) {
         return (
-            <div className="flex min-h-screen bg-gray-50">
+            <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
                 <Sidebar />
                 <main className="flex-1 p-8">
                     <div className="max-w-7xl mx-auto">
-                        <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                                Error
-                            </h3>
-                            <p className="text-gray-600">{error}</p>
+                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">Error</p>
+                            <p className="text-sm text-gray-500">{error}</p>
                         </div>
                     </div>
                 </main>
@@ -176,260 +156,305 @@ const Attendance = () => {
     }
 
     return (
-        <div className="flex h-screen bg-gray-50 overflow-hidden">
+        <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
             <Sidebar />
 
-            <main className="flex-1 overflow-y-auto p-6 lg:p-10">
-                <div className="max-w-7xl mx-auto space-y-8">
-                    {/* Header */}
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <main className="flex-1 overflow-y-auto">
+                <div className="max-w-6xl mx-auto px-6 lg:px-10 py-8 space-y-6">
+
+                    {/* ── Header ── */}
+                    <div className="flex items-start justify-between gap-4">
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-900 mb-1">
-                                Attendance
-                            </h1>
-                            <p className="text-gray-500">
-                                Track your attendance across all subjects
-                            </p>
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Attendance</h1>
+                            <p className="text-sm text-gray-500 mt-0.5">{attendanceData.length} subject{attendanceData.length !== 1 ? 's' : ''} tracked</p>
                         </div>
 
-                        <div className="bg-gradient-to-br from-gray-900 to-gray-700 rounded-2xl p-6 text-white shadow-lg">
-                            <p className="text-sm font-medium opacity-90 mb-1">
-                                Overall Attendance
-                            </p>
-                            <p className="text-4xl font-bold">
-                                {calculateOverallAttendance()}%
+                        {/* Overall stat pill */}
+                        <div className="shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-5 py-3 text-center shadow-sm">
+                            <p className="text-xs text-gray-500 mb-0.5 uppercase tracking-wider font-medium">Overall</p>
+                            <p className={`text-2xl font-bold ${Number(overallAttendance()) >= 75 ? 'text-emerald-600' : Number(overallAttendance()) >= 65 ? 'text-amber-600' : 'text-red-600'}`}>
+                                {overallAttendance()}%
                             </p>
                         </div>
                     </div>
 
-                    {/* Tab Navigation */}
-                    <div className="flex gap-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-2">
-                        <button
-                            onClick={() => setActiveTab('view')}
-                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all ${activeTab === 'view'
-                                ? 'bg-gray-900 text-white shadow-sm'
-                                : 'text-gray-600 hover:bg-gray-50'
-                                }`}
-                        >
-                            <Info className="h-4 w-4" />
-                            Attendance View
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('calculator')}
-                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all ${activeTab === 'calculator'
-                                ? 'bg-gray-900 text-white shadow-sm'
-                                : 'text-gray-600 hover:bg-gray-50'
-                                }`}
-                        >
-                            <Calculator className="h-4 w-4" />
-                            Calculator Mode
-                        </button>
+                    {/* ── Summary stats row ── */}
+                    <div className="grid grid-cols-3 gap-3">
+                        {[
+                            { label: 'On Track', count: counts.good,     color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800' },
+                            { label: 'At Risk',  count: counts.warning,  color: 'text-amber-600',   bg: 'bg-amber-50 dark:bg-amber-900/20',     border: 'border-amber-200 dark:border-amber-800'   },
+                            { label: 'Short',    count: counts.critical, color: 'text-red-600',     bg: 'bg-red-50 dark:bg-red-900/20',         border: 'border-red-200 dark:border-red-800'       },
+                        ].map(({ label, count, color, bg, border }) => (
+                            <div key={label} className={`rounded-xl border ${border} ${bg} p-4 text-center`}>
+                                <p className={`text-xl font-bold ${color}`}>{count}</p>
+                                <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+                            </div>
+                        ))}
                     </div>
 
-                    {/* Conditional rendering based on active tab */}
+                    {/* ── Tab bar ── */}
+                    <div className="flex bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-1 gap-1">
+                        {[
+                            { key: 'view',       label: 'Attendance',  Icon: BarChart2  },
+                            { key: 'calculator', label: 'Calculator',  Icon: Calculator },
+                        ].map(({ key, label, Icon }) => (
+                            <button
+                                key={key}
+                                onClick={() => setActiveTab(key)}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all
+                                    ${activeTab === key
+                                        ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                    }`}
+                            >
+                                <Icon className="h-4 w-4" />
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* ── Tab content ── */}
                     {activeTab === 'view' ? (
                         <>
-                            {/* Filters */}
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                                <div className="flex flex-col md:flex-row gap-4">
-                                    <div className="flex-1">
-                                        <label className="block text-xs font-medium text-gray-500 mb-2">
-                                            Sort By
-                                        </label>
-                                        <div className="flex gap-2">
-                                            {['subject', 'percentage', 'lectures'].map((key) => (
-                                                <button
-                                                    key={key}
-                                                    onClick={() => setSortBy(key)}
-                                                    className={`px-4 py-2 rounded-lg text-sm font-medium ${sortBy === key
-                                                        ? 'bg-gray-900 text-white'
-                                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                                        }`}
-                                                >
-                                                    {key[0].toUpperCase() + key.slice(1)}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
+                            {/* Filter / sort bar */}
+                            <div className="flex flex-wrap items-center gap-3">
+                                <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Sort</span>
+                                {['subject', 'percentage', 'lectures'].map(key => (
+                                    <button
+                                        key={key}
+                                        onClick={() => setSortBy(key)}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all
+                                            ${sortBy === key
+                                                ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white'
+                                                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-gray-400'
+                                            }`}
+                                    >
+                                        {key === 'subject' ? 'Subject' : key === 'percentage' ? '% High→Low' : 'Most Classes'}
+                                    </button>
+                                ))}
 
-                                    <div className="flex-1">
-                                        <label className="block text-xs font-medium text-gray-500 mb-2">
-                                            Filter By Status
-                                        </label>
-                                        <div className="flex gap-2">
-                                            {['all', 'good', 'warning', 'critical'].map((key) => (
-                                                <button
-                                                    key={key}
-                                                    onClick={() => setFilterStatus(key)}
-                                                    className={`px-4 py-2 rounded-lg text-sm font-medium ${filterStatus === key
-                                                        ? 'bg-gray-900 text-white'
-                                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                                        }`}
-                                                >
-                                                    {key[0].toUpperCase() + key.slice(1)}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
+                                <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
+
+                                <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Filter</span>
+                                {[
+                                    { key: 'all',      label: `All (${attendanceData.length})` },
+                                    { key: 'good',     label: `On Track (${counts.good})`     },
+                                    { key: 'warning',  label: `At Risk (${counts.warning})`   },
+                                    { key: 'critical', label: `Short (${counts.critical})`    },
+                                ].map(({ key, label }) => (
+                                    <button
+                                        key={key}
+                                        onClick={() => setFilterStatus(key)}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all
+                                            ${filterStatus === key
+                                                ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white'
+                                                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-gray-400'
+                                            }`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
                             </div>
 
-                            {/* Cards Grid */}
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {filteredData.length === 0 ? (
-                                    <div className="col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
-                                        <p className="text-gray-500">
-                                            No attendance data available for the selected filter.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    filteredData.map((item, index) => {
-                                        const present = item.presentCount || 0;
-                                        const total = item.totalRecords || 0;
-                                        const absent = item.absentCount || 0;
-                                        const percentage =
-                                            total > 0 ? ((present / total) * 100).toFixed(2) : 0;
-                                        const status = getAttendanceStatus(Number(percentage));
-                                        const faculty =
-                                            item.records && item.records.length > 0
-                                                ? item.records[0].faculty
-                                                : '';
+                            {/* Course cards */}
+                            {filteredData.length === 0 ? (
+                                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-12 text-center">
+                                    <p className="text-sm text-gray-400">No subjects match the selected filter.</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    {filteredData.map((item, index) => {
+                                        const pct      = getPercentage(item);
+                                        const status   = getStatus(pct);
+                                        const present  = item.presentCount  || 0;
+                                        const absent   = item.absentCount   || 0;
+                                        const total    = item.totalRecords  || 0;
+                                        const dutyLeave = item.od != null ? item.od : null;
+                                        const lastDate  = item.lastDate || null;
+                                        const faculty   = item.records?.length > 0 ? item.records[0].faculty : '';
+                                        const title     = item.courseTitle || '';
 
                                         return (
                                             <div
                                                 key={index}
-                                                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-lg transition-all duration-300"
+                                                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 hover:shadow-md transition-shadow duration-200"
                                             >
-                                                <div className="flex items-start justify-between mb-6">
-                                                    <h3 className="text-lg font-bold text-gray-900">
-                                                        {item.courseCode || 'N/A'}
-                                                    </h3>
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedCourse(item);
-                                                                setIsModalOpen(true);
-                                                            }}
-                                                            className="p-2 cursor-pointer rounded-lg hover:bg-gray-100"
-                                                        >
-                                                            <Info className="h-5 w-5 text-gray-600" />
-                                                        </button>
-                                                        <span
-                                                            className={`px-3 py-1 rounded-full text-xs font-semibold ${status.color} border ${status.border}`}
-                                                        >
+                                                {/* Card header */}
+                                                <div className="flex items-start justify-between mb-4">
+                                                    <div className="min-w-0 flex-1 pr-3">
+                                                        <h3 className="text-base font-bold text-gray-900 dark:text-white truncate">{item.courseCode || 'N/A'}</h3>
+                                                        {title && (
+                                                            <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{title}</p>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${status.badge}`}>
                                                             {status.label}
                                                         </span>
+                                                        <button
+                                                            onClick={() => { setSelectedCourse(item); setIsModalOpen(true); }}
+                                                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                                            title="View all records"
+                                                        >
+                                                            <ChevronRight className="h-4 w-4" />
+                                                        </button>
                                                     </div>
                                                 </div>
 
-                                                <div className="text-center mb-6">
-                                                    <p className="text-3xl font-bold">{percentage}%</p>
+                                                {/* Percentage + progress bar */}
+                                                <div className="mb-4">
+                                                    <div className="flex items-baseline justify-between mb-1.5">
+                                                        <span className={`text-2xl font-bold ${status.text}`}>{pct.toFixed(2)}%</span>
+                                                        <span className="text-xs text-gray-400">{present}/{total} classes</span>
+                                                    </div>
+                                                    <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full rounded-full transition-all duration-500 ${status.bar}`}
+                                                            style={{ width: `${Math.min(pct, 100)}%` }}
+                                                        />
+                                                    </div>
+                                                    {/* 75% marker */}
+                                                    <div className="relative h-0 -mt-1.5">
+                                                        <div className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>
+                                                            <div className="w-px h-2.5 bg-gray-300 dark:bg-gray-600" />
+                                                        </div>
+                                                    </div>
                                                 </div>
 
-                                                <div className="grid grid-cols-3 gap-4 pt-4 border-t">
+                                                {/* Stats row */}
+                                                <div className="grid grid-cols-4 gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
                                                     <div className="text-center">
-                                                        <p className="text-xs text-gray-500">Present</p>
-                                                        <p className="font-bold text-green-600">{present}</p>
+                                                        <p className="text-xs text-gray-400 mb-0.5">Present</p>
+                                                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{present}</p>
                                                     </div>
                                                     <div className="text-center">
-                                                        <p className="text-xs text-gray-500">Absent</p>
-                                                        <p className="font-bold text-red-600">{absent}</p>
+                                                        <p className="text-xs text-gray-400 mb-0.5">Absent</p>
+                                                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{absent}</p>
                                                     </div>
                                                     <div className="text-center">
-                                                        <p className="text-xs text-gray-500">Total</p>
-                                                        <p className="font-bold">{total}</p>
+                                                        <p className="text-xs text-gray-400 mb-0.5">Total</p>
+                                                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{total}</p>
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <p className="text-xs text-gray-400 mb-0.5">Duty Leave</p>
+                                                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                            {dutyLeave != null && dutyLeave !== '' && dutyLeave !== '0' ? dutyLeave : '—'}
+                                                        </p>
                                                     </div>
                                                 </div>
 
-                                                {faculty && (
-                                                    <div className="mt-4 pt-4 border-t">
-                                                        <p className="text-xs text-gray-500">Faculty</p>
-                                                        <p className="text-sm font-semibold">{faculty}</p>
+                                                {/* Footer meta */}
+                                                {(faculty || lastDate) && (
+                                                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                                                        {faculty && <p className="text-xs text-gray-400 truncate">{faculty}</p>}
+                                                        {lastDate && <p className="text-xs text-gray-400 shrink-0 ml-2">Last: {lastDate}</p>}
                                                     </div>
                                                 )}
                                             </div>
                                         );
-                                    })
-                                )}
-                            </div>
-
-                            {/* Legend */}
-                            <div className="bg-gray-50 rounded-2xl shadow-sm border border-gray-100 p-6">
-                                <h3 className="text-sm font-semibold text-gray-900 mb-4">Attendance Status Guide</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-4 h-4 rounded-full bg-green-600"></div>
-                                        <div>
-                                            <p className="text-sm font-semibold text-gray-900">Good</p>
-                                            <p className="text-xs text-gray-500">75% and above</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-4 h-4 rounded-full bg-yellow-500"></div>
-                                        <div>
-                                            <p className="text-sm font-semibold text-gray-900">Warning</p>
-                                            <p className="text-xs text-gray-500">65% - 74%</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-4 h-4 rounded-full bg-red-600"></div>
-                                        <div>
-                                            <p className="text-sm font-semibold text-gray-900">Critical</p>
-                                            <p className="text-xs text-gray-500">Below 65%</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Modal */}
-                            {isModalOpen && selectedCourse && (
-                                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                                    <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
-                                        <div className="flex items-start justify-between p-6 border-b">
-                                            <h2 className="text-2xl font-bold">
-                                                {selectedCourse.courseCode}
-                                            </h2>
-                                            <button
-                                                onClick={() => {
-                                                    setIsModalOpen(false);
-                                                    setSelectedCourse(null);
-                                                }}
-                                                className="p-2 cursor-pointer rounded-lg hover:bg-gray-100"
-                                            >
-                                                <X className="h-6 w-6 text-gray-600" />
-                                            </button>
-                                        </div>
-
-                                        <div className="flex-1 overflow-y-auto p-6 space-y-3">
-                                            {selectedCourse.records?.map((r, i) => (
-                                                <div key={i} className="bg-gray-50 rounded-xl p-4">
-                                                    <div className="flex justify-between">
-                                                        <div>
-                                                            <p className="font-semibold">{r.date}</p>
-                                                            <p className="text-xs text-gray-500">{r.time}</p>
-                                                        </div>
-                                                        <p className="text-xs text-gray-600">{r.faculty}</p>
-                                                        <span
-                                                            className={`px-3 py-1 rounded-lg text-xs font-semibold ${r.status === 'P'
-                                                                ? 'bg-green-100 text-green-800'
-                                                                : 'bg-red-100 text-red-800'
-                                                                }`}
-                                                        >
-                                                            {r.status === 'P' ? 'Present' : 'Absent'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
+                                    })}
                                 </div>
                             )}
+
+                            {/* Legend */}
+                            <div className="flex items-center gap-6 px-1">
+                                {[
+                                    { label: 'On Track ≥ 75%', dot: 'bg-emerald-500' },
+                                    { label: 'At Risk 65–74%',  dot: 'bg-amber-500'   },
+                                    { label: 'Short < 65%',     dot: 'bg-red-500'     },
+                                ].map(({ label, dot }) => (
+                                    <div key={label} className="flex items-center gap-1.5">
+                                        <div className={`w-2 h-2 rounded-full ${dot}`} />
+                                        <span className="text-xs text-gray-500">{label}</span>
+                                    </div>
+                                ))}
+                            </div>
                         </>
                     ) : (
                         <AttendanceCalculator />
                     )}
                 </div>
             </main>
+
+            {/* ── Detail modal ── */}
+            {isModalOpen && selectedCourse && (
+                <div
+                    className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                    onClick={() => { setIsModalOpen(false); setSelectedCourse(null); }}
+                >
+                    <div
+                        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[88vh] flex flex-col"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Modal header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-900 dark:text-white">{selectedCourse.courseCode}</h2>
+                                {selectedCourse.courseTitle && (
+                                    <p className="text-xs text-gray-400 mt-0.5">{selectedCourse.courseTitle}</p>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => { setIsModalOpen(false); setSelectedCourse(null); }}
+                                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        {/* Modal summary strip */}
+                        <div className="grid grid-cols-4 divide-x divide-gray-100 dark:divide-gray-800 border-b border-gray-100 dark:border-gray-800">
+                            {[
+                                { label: 'Present',     value: selectedCourse.presentCount || 0 },
+                                { label: 'Absent',      value: selectedCourse.absentCount  || 0 },
+                                { label: 'Total',       value: selectedCourse.totalRecords  || 0 },
+                                { label: 'Duty Leave',  value: selectedCourse.od != null && selectedCourse.od !== '' ? selectedCourse.od : '—' },
+                            ].map(({ label, value }) => (
+                                <div key={label} className="py-3 text-center">
+                                    <p className="text-sm font-bold text-gray-900 dark:text-white">{value}</p>
+                                    <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Record list */}
+                        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
+                            {selectedCourse.records?.length > 0 ? (
+                                selectedCourse.records.map((r, i) => (
+                                    <div
+                                        key={i}
+                                        className={`flex items-center justify-between px-4 py-3 rounded-lg border text-sm
+                                            ${r.status === 'P'
+                                                ? 'bg-gray-50 dark:bg-gray-800/60 border-gray-100 dark:border-gray-700/60'
+                                                : 'bg-red-50/60 dark:bg-red-900/10 border-red-100 dark:border-red-900/30'
+                                            }`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${r.status === 'P' ? 'bg-emerald-500' : 'bg-red-400'}`} />
+                                            <div>
+                                                <p className="font-medium text-gray-900 dark:text-white">{r.date}</p>
+                                                <p className="text-xs text-gray-400">{r.time}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4 text-right">
+                                            <p className="text-xs text-gray-400 hidden sm:block truncate max-w-[140px]">{r.faculty}</p>
+                                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-md
+                                                ${r.status === 'P'
+                                                    ? 'text-emerald-700 dark:text-emerald-400'
+                                                    : 'text-red-600 dark:text-red-400'
+                                                }`}>
+                                                {r.status === 'P' ? 'Present' : 'Absent'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-sm text-gray-400 text-center py-8">No records available.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
