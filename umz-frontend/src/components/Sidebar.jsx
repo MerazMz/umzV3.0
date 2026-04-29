@@ -18,7 +18,8 @@ import {
     Sun,
     Moon,
     Trophy,
-    Eye
+    Eye,
+    Home
 } from 'lucide-react';
 import { startLogin, completeLogin, getStudentInfo } from '../services/api';
 import CaptchaModal from './CaptchaModal';
@@ -262,6 +263,12 @@ const Sidebar = () => {
                 { name: "Cgpa", icon: Award, path: "/cgpa" },
                 { name: "Time Table", icon: Calendar, path: "/time-table" },
                 { name: "Ranking", icon: Trophy, path: "/ranking" },
+            ]
+        },
+        {
+            title: "Hostel",
+            items: [
+                { name: "Hostel", icon: Home, path: "/mutual-shift" },
             ]
         },
         {

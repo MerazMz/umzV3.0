@@ -3,6 +3,7 @@ import cors from 'cors';
 import axios from 'axios';
 import { chromium } from 'playwright';
 import { v4 as uuidv4 } from 'uuid';
+import mongoose from 'mongoose';
 import SessionPool from './src/utils/SessionPool.js';
 import { createAxiosClient } from './src/utils/createAxiosClient.js';
 import { fetchStudentBasicInformation } from './src/modules/GetStudentBasicInformation.js';
@@ -15,12 +16,20 @@ import { fetchTimeTable } from './src/modules/GetTimeTable.js';
 import { fetchStudentCourses } from './src/modules/GetStudentCourses.js';
 import { fetchStudentSeatingPlan } from './src/modules/GetSeatingPlan.js';
 import { fetchPasswordExpiry } from './src/modules/GetPasswordExpiry.js';
+import { fetchHostelInfo } from './src/modules/GetHostelInfo.js';
+import MutualShiftPost from './src/models/MutualShiftPost.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Initialize SessionPool with max 20 concurrent Playwright sessions
 const sessionPool = new SessionPool(20);
+
+// Connect to MongoDB
+const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/umz';
+mongoose.connect(MONGO_URI)
+    .then(() => console.log(`✅ MongoDB connected: ${MONGO_URI}`))
+    .catch(err => console.error('❌ MongoDB connection error:', err.message));
 
 // Middleware
 app.use(cors({
@@ -602,6 +611,125 @@ app.post('/api/seating-plan', async (req, res) => {
             success: false,
             error: error.message
         });
+    }
+});
+
+/**
+ * POST /api/hostel-info
+ * Fetch student hostel information (VID, Name, Hostel, Room No)
+ */
+app.post('/api/hostel-info', async (req, res) => {
+    const { cookies } = req.body;
+
+    if (!cookies) {
+        return res.status(400).json({ success: false, error: 'Cookies are required' });
+    }
+
+    try {
+        console.log('🏠 Fetching hostel info...');
+        const axiosClient = createAxiosClient(cookies);
+        const hostelData = await fetchHostelInfo(axiosClient);
+
+        return res.json({ success: true, data: hostelData });
+    } catch (error) {
+        console.error('❌ Error fetching hostel info:', error.message);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * GET /api/mutual-shift
+ * Get all active mutual shift posts
+ */
+app.get('/api/mutual-shift', async (req, res) => {
+    try {
+        const posts = await MutualShiftPost.find({ isActive: true }).sort({ createdAt: -1 });
+        return res.json({ success: true, data: posts });
+    } catch (error) {
+        console.error('❌ Error fetching mutual shift posts:', error.message);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * GET /api/mutual-shift/:vid
+ * Get a specific student's mutual shift post
+ */
+app.get('/api/mutual-shift/:vid', async (req, res) => {
+    try {
+        const post = await MutualShiftPost.findOne({ vid: req.params.vid });
+        return res.json({ success: true, data: post || null });
+    } catch (error) {
+        console.error('❌ Error fetching post:', error.message);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * POST /api/mutual-shift
+ * Create a new mutual shift post
+ */
+app.post('/api/mutual-shift', async (req, res) => {
+    const { vid, name, currentHostel, currentRoom, desiredHostel, desiredFloor, desiredRoom } = req.body;
+
+    if (!vid || !name || !currentHostel || !currentRoom || !desiredHostel || !desiredFloor) {
+        return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+
+    try {
+        const post = new MutualShiftPost({ vid, name, currentHostel, currentRoom, desiredHostel, desiredFloor, desiredRoom: desiredRoom || '' });
+        await post.save();
+        return res.status(201).json({ success: true, data: post });
+    } catch (error) {
+        if (error.code === 11000) {
+            return res.status(409).json({ success: false, error: 'You already have an active post. Delete it first or use edit.' });
+        }
+        console.error('❌ Error creating post:', error.message);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * PUT /api/mutual-shift/:vid
+ * Update an existing mutual shift post
+ */
+app.put('/api/mutual-shift/:vid', async (req, res) => {
+    const { desiredHostel, desiredFloor, desiredRoom } = req.body;
+
+    try {
+        const post = await MutualShiftPost.findOneAndUpdate(
+            { vid: req.params.vid },
+            { desiredHostel, desiredFloor, desiredRoom: desiredRoom || '' },
+            { new: true }
+        );
+
+        if (!post) {
+            return res.status(404).json({ success: false, error: 'Post not found' });
+        }
+
+        return res.json({ success: true, data: post });
+    } catch (error) {
+        console.error('❌ Error updating post:', error.message);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * DELETE /api/mutual-shift/:vid
+ * Delete a mutual shift post
+ */
+app.delete('/api/mutual-shift/:vid', async (req, res) => {
+    try {
+        const result = await MutualShiftPost.findOneAndDelete({ vid: req.params.vid });
+
+        if (!result) {
+            return res.status(404).json({ success: false, error: 'Post not found' });
+        }
+
+        return res.json({ success: true, message: 'Post deleted successfully' });
+    } catch (error) {
+        console.error('❌ Error deleting post:', error.message);
+        return res.status(500).json({ success: false, error: error.message });
     }
 });
 

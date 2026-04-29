@@ -226,3 +226,75 @@ export async function getSeatingPlan(cookies) {
     }
 }
 
+
+/**
+ * Get student hostel information (VID, Name, Hostel, Room No)
+ * @param {string} cookies - Session cookies
+ */
+export async function getHostelInfo(cookies) {
+    const response = await fetch(`${API_BASE_URL}/hostel-info`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cookies }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch hostel information');
+    return data;
+}
+
+/**
+ * Get the logged-in student's mutual shift post (by VID)
+ */
+export async function getMyMutualShiftPost(vid) {
+    const response = await fetch(`${API_BASE_URL}/mutual-shift/${encodeURIComponent(vid)}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch post');
+    return data;
+}
+
+/**
+ * Create a new mutual shift post
+ */
+export async function createMutualShiftPost(payload) {
+    const response = await fetch(`${API_BASE_URL}/mutual-shift`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to create post');
+    return data;
+}
+
+/**
+ * Update an existing mutual shift post
+ */
+export async function updateMutualShiftPost(vid, updates) {
+    const response = await fetch(`${API_BASE_URL}/mutual-shift/${encodeURIComponent(vid)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to update post');
+    return data;
+}
+
+/**
+ * Delete a mutual shift post
+ */
+export async function deleteMutualShiftPost(vid) {
+    const response = await fetch(`${API_BASE_URL}/mutual-shift/${encodeURIComponent(vid)}`, {
+        method: 'DELETE',
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to delete post');
+    return data;
+}
+
+export async function getAllMutualShiftPosts() {
+    const response = await fetch(`${API_BASE_URL}/mutual-shift`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch posts');
+    return data;
+}

@@ -16,6 +16,7 @@
         "ejs": "^4.0.1",
         "express": "^5.2.1",
         "express-session": "^1.18.2",
+        "mongoose": "^9.6.0",
         "multer": "^2.0.2",
         "playwright": "^1.40.0",
         "readline": "^1.3.0",

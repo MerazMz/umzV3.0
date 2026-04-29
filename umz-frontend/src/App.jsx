@@ -7,6 +7,8 @@ import CGPA from './components/CGPA';
 import TimeTable from './components/TimeTable';
 import Courses from './components/Courses';
 import Ranking from './components/Ranking';
+import MutualShift from './components/MutualShift';
+import HostelInfo from './components/HostelInfo';
 import './App.css';
 
 function App() {
@@ -21,6 +23,8 @@ function App() {
         <Route path="/time-table" element={<TimeTable />} />
         <Route path="/courses" element={<Courses />} />
         <Route path="/ranking" element={<Ranking />} />
+        <Route path="/mutual-shift" element={<MutualShift />} />
+        <Route path="/hostel-info" element={<HostelInfo />} />
       </Routes>
     </BrowserRouter>
   );
