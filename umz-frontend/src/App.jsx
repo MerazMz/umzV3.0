@@ -9,6 +9,7 @@ import Courses from './components/Courses';
 import Ranking from './components/Ranking';
 import MutualShift from './components/MutualShift';
 import HostelInfo from './components/HostelInfo';
+import AiBuddy from './components/AiBuddy';
 import './App.css';
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
         <Route path="/ranking" element={<Ranking />} />
         <Route path="/mutual-shift" element={<MutualShift />} />
         <Route path="/hostel-info" element={<HostelInfo />} />
+        <Route path="/ai-buddy" element={<AiBuddy />} />
       </Routes>
     </BrowserRouter>
   );

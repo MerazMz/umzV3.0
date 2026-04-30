@@ -6,7 +6,7 @@ import * as cheerio from 'cheerio';
  * @returns {Promise<Array>} - Array of messages
  */
 export async function fetchStudentMessages(client) {
-    console.log('📊 Fetching Student Messages...');
+    // console.log('📊 Fetching Student Messages...');
 
     const response = await client.post(
         'https://ums.lpu.in/lpuums/StudentDashboard.aspx/GetStudentMessages',
@@ -49,32 +49,32 @@ export async function fetchStudentMessages(client) {
     });
 
     // Display the data
-    console.log('\n� STUDENT MESSAGES\n');
-    console.log('═══════════════════════════════════════════\n');
+    // console.log('\n STUDENT MESSAGES\n');
+    // console.log('═══════════════════════════════════════════\n');
 
     if (messages.length === 0) {
-        console.log('No messages found.\n');
+        // console.log('No messages found.\n');
     } else {
         messages.forEach((msg, index) => {
-            console.log(`━━━ MESSAGE ${index + 1} ━━━`);
-            console.log(`📌 ${msg.subject}`);
-            console.log(`👤 From: ${msg.sender}`);
-            console.log(`📅 Date: ${msg.date}\n`);
+            // console.log(`━━━ MESSAGE ${index + 1} ━━━`);
+            // console.log(`📌 ${msg.subject}`);
+            // console.log(`👤 From: ${msg.sender}`);
+            // console.log(`📅 Date: ${msg.date}\n`);
 
             // Display message content with wrapping
             const contentLines = msg.content.match(/.{1,80}(\s|$)/g) || [msg.content];
             contentLines.forEach(line => {
-                console.log(`   ${line.trim()}`);
+                // console.log(`   ${line.trim()}`);
             });
 
             if (index < messages.length - 1) {
-                console.log('\n');
+                // console.log('\n');
             }
         });
     }
 
-    console.log('\n═══════════════════════════════════════════\n');
-    console.log(`Total Messages: ${messages.length}\n`);
+    // console.log('\n═══════════════════════════════════════════\n');
+    // console.log(`Total Messages: ${messages.length}\n`);
 
     return messages;
 }

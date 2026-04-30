@@ -93,15 +93,16 @@ const AttendanceCalculator = () => {
         }
     };
 
-    // Use UMS-official percent from summary when available; fall back to calculated.
+    // Use UMS-official percent from summary when available; fall back to (attended+OD)/delivered.
     const getPercentage = (item) => {
         if (item.summaryPercent != null) {
             const val = parseFloat(String(item.summaryPercent).replace('%', ''));
             if (!isNaN(val)) return val;
         }
-        return item.totalRecords > 0
-            ? (item.presentCount / item.totalRecords) * 100
-            : 0;
+        const od = parseInt(item.od) || 0;
+        const effective = (item.presentCount || 0) + od;
+        const delivered = item.totalRecords || 0;
+        return delivered > 0 ? (effective / delivered) * 100 : 0;
     };
 
     const updateInput = (courseCode, field, value) => {
@@ -122,7 +123,9 @@ const AttendanceCalculator = () => {
             return null;
         }
 
-        const present = subject.presentCount || 0;
+        // (attended + duty leaves) counts as present towards attendance
+        const od = parseInt(subject.od) || 0;
+        const present = (subject.presentCount || 0) + od;
         const total = subject.totalRecords || 0;
         const lecturesPerWeek = parseInt(input.lecturesPerWeek) || 0;
         const target = parseFloat(input.targetPercentage) || 75;
@@ -283,8 +286,13 @@ const AttendanceCalculator = () => {
                                     <div>
                                         <p className="text-xs text-gray-500">Attended / Total</p>
                                         <p className="text-lg font-bold">
-                                            {subject.presentCount || 0} / {subject.totalRecords || 0}
+                                            {(subject.presentCount || 0) + (parseInt(subject.od) || 0)} / {subject.totalRecords || 0}
                                         </p>
+                                        {(parseInt(subject.od) || 0) > 0 && (
+                                            <p className="text-xs text-gray-400 mt-0.5">
+                                                incl. {subject.od} duty leave{subject.od !== 1 ? 's' : ''}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
 

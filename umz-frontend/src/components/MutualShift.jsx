@@ -13,7 +13,40 @@ const Field = ({ label, value, muted }) => (
     </div>
 );
 
-// ─── Input helper ─────────────────────────────────────────────
+// ─── Hostel options ───────────────────────────────────────────
+const HOSTELS = [
+    'Boys Hostel 1',
+    'Boys Hostel 2',
+    'Boys Hostel 3',
+    'Boys Hostel 4',
+    'Boys Hostel 5',
+    'Boys Hostel 6',
+    'Boys Hostel 7',
+    'Boys Studios 8',
+    'Boys Studios 9',
+    'Boys Studios 10',
+    'Apartment',
+];
+
+// ─── Select helper ────────────────────────────────────────────
+const Select = ({ label, id, value, onChange, required }) => (
+    <div>
+        <label htmlFor={id} className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
+            {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+        </label>
+        <select
+            id={id}
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            required={required}
+            className="w-full px-3 py-2.5 text-sm bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white focus:border-transparent transition-all appearance-none cursor-pointer"
+        >
+            <option value="" disabled>Select a hostel…</option>
+            {HOSTELS.map(h => <option key={h} value={h}>{h}</option>)}
+        </select>
+    </div>
+);
+
 const Input = ({ label, id, value, onChange, placeholder, required }) => (
     <div>
         <label htmlFor={id} className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
@@ -92,7 +125,7 @@ const PostCard = ({ post, isOwn, onChat }) => {
                 ) : (
                     <button
                         onClick={() => onChat(post)}
-                        title="Chat via LPU app"
+                        title="Chat via LPU Live"
                         className="cursor-pointer w-8 h-8 rounded-full flex items-center justify-center text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                     >
                         <MessageCircle className="h-4.5 w-4.5" />
@@ -194,21 +227,21 @@ const MutualShift = () => {
 
     // ── My Post handlers ──────────────────────────────────────
     const openEditForm = () => {
-        setForm(myPost ? { desiredHostel: myPost.desiredHostel, desiredFloor: myPost.desiredFloor, desiredRoom: myPost.desiredRoom || '' } : { desiredHostel: '', desiredFloor: '', desiredRoom: '' });
+        setForm(myPost ? { desiredHostel: myPost.desiredHostel, desiredRoom: myPost.desiredRoom || '' } : { desiredHostel: '', desiredRoom: '' });
         setFormError('');
         setIsEditing(true);
     };
 
     const handleSubmit = async e => {
         e.preventDefault();
-        if (!form.desiredHostel.trim() || !form.desiredFloor.trim()) { setFormError('Desired hostel and floor are required.'); return; }
+        if (!form.desiredHostel) { setFormError('Please select a desired hostel.'); return; }
         try {
             setSubmitting(true); setFormError('');
             if (myPost) {
-                const res = await updateMutualShiftPost(hostelInfo.vid, { desiredHostel: form.desiredHostel.trim(), desiredFloor: form.desiredFloor.trim(), desiredRoom: form.desiredRoom.trim() });
+                const res = await updateMutualShiftPost(hostelInfo.vid, { desiredHostel: form.desiredHostel, desiredFloor: '', desiredRoom: form.desiredRoom.trim() });
                 setMyPost(res.data);
             } else {
-                const res = await createMutualShiftPost({ vid: hostelInfo.vid, name: hostelInfo.name, currentHostel: hostelInfo.hostel, currentRoom: hostelInfo.roomNo, desiredHostel: form.desiredHostel.trim(), desiredFloor: form.desiredFloor.trim(), desiredRoom: form.desiredRoom.trim() });
+                const res = await createMutualShiftPost({ vid: hostelInfo.vid, name: hostelInfo.name, currentHostel: hostelInfo.hostel, currentRoom: hostelInfo.roomNo, desiredHostel: form.desiredHostel, desiredFloor: '', desiredRoom: form.desiredRoom.trim() });
                 setMyPost(res.data);
             }
             setIsEditing(false);
@@ -431,7 +464,6 @@ const MutualShift = () => {
                                         <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2 px-1">Desired Location</p>
                                         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                                             <Field label="Desired Hostel" value={myPost.desiredHostel} />
-                                            {/* <Field label="Desired Floor" value={myPost.desiredFloor} /> */}
                                             <Field label="Desired Room" value={myPost.desiredRoom} muted={!myPost.desiredRoom} />
                                         </div>
                                     </div>
@@ -491,8 +523,7 @@ const MutualShift = () => {
                                     <div>
                                         <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3 px-1">Where do you want to shift?</p>
                                         <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-4">
-                                            <Input id="desiredHostel" label="Desired Hostel" value={form.desiredHostel} onChange={v => setForm(f => ({ ...f, desiredHostel: v }))} placeholder="e.g. Boys Studios 04" required />
-                                            <Input id="desiredFloor" label="Desired Floor" value={form.desiredFloor} onChange={v => setForm(f => ({ ...f, desiredFloor: v }))} placeholder="e.g. 2nd Floor" required />
+                                            <Select id="desiredHostel" label="Desired Hostel" value={form.desiredHostel} onChange={v => setForm(f => ({ ...f, desiredHostel: v }))} required />
                                             <Input id="desiredRoom" label="Desired Room (optional)" value={form.desiredRoom} onChange={v => setForm(f => ({ ...f, desiredRoom: v }))} placeholder="e.g. B204 (leave blank for any)" />
                                             {formError && <p className="text-xs text-red-500 dark:text-red-400 font-medium">{formError}</p>}
                                             <div className="flex gap-3 pt-1">

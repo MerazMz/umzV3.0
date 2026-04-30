@@ -92,36 +92,61 @@ const Attendance = () => {
     // Returns { label, statusClass, barColor, textColor }
     const getStatus = (pct) => {
         if (pct >= 75) return { label: 'On Track', dot: 'bg-emerald-500', bar: 'bg-emerald-500', text: 'text-emerald-700', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
-        if (pct >= 65) return { label: 'At Risk',  dot: 'bg-amber-500',   bar: 'bg-amber-500',   text: 'text-amber-700',   badge: 'bg-amber-50 text-amber-700 border-amber-200'   };
-        return                { label: 'Short',    dot: 'bg-red-500',     bar: 'bg-red-500',     text: 'text-red-700',     badge: 'bg-red-50 text-red-700 border-red-200'         };
+        if (pct >= 65) return { label: 'At Risk', dot: 'bg-amber-500', bar: 'bg-amber-500', text: 'text-amber-700', badge: 'bg-amber-50 text-amber-700 border-amber-200' };
+        return { label: 'Short', dot: 'bg-red-500', bar: 'bg-red-500', text: 'text-red-700', badge: 'bg-red-50 text-red-700 border-red-200' };
     };
+
+    // ── RPL badge logic ───────────────────────────────────────────────────
+    // Grades considered "B+ or above"
+    const rplGoodGrades = new Set(['O', 'A+', 'A', 'B+']);
+
+    // Build a map: courseCode (uppercase) -> grade, from cached result data
+    const rplSubjectMap = (() => {
+        try {
+            const cached = localStorage.getItem('umz_result_data');
+            if (!cached) return {};
+            const parsed = JSON.parse(cached);
+            const map = {};
+            (parsed.rplGrades || []).forEach(grp => {
+                (grp.subjects || []).forEach(sub => {
+                    if (sub.code && sub.grade && rplGoodGrades.has(sub.grade.trim().toUpperCase())) {
+                        map[sub.code.trim().toUpperCase()] = sub.grade.trim();
+                    }
+                });
+            });
+            return map;
+        } catch { return {}; }
+    })();
 
     const sortedData = [...attendanceData].sort((a, b) => {
         switch (sortBy) {
             case 'percentage': return getPercentage(b) - getPercentage(a);
-            case 'lectures':   return (b.totalRecords || 0) - (a.totalRecords || 0);
-            default:           return (a.courseCode || '').localeCompare(b.courseCode || '');
+            case 'lectures': return (b.totalRecords || 0) - (a.totalRecords || 0);
+            default: return (a.courseCode || '').localeCompare(b.courseCode || '');
         }
     });
 
     const filteredData = sortedData.filter((item) => {
         if (filterStatus === 'all') return true;
         const p = getPercentage(item);
-        if (filterStatus === 'good')     return p >= 75;
-        if (filterStatus === 'warning')  return p >= 65 && p < 75;
+        if (filterStatus === 'good') return p >= 75;
+        if (filterStatus === 'warning') return p >= 65 && p < 75;
         if (filterStatus === 'critical') return p < 65;
         return true;
     });
 
     const overallAttendance = () => {
-        if (attendanceData.length === 0) return '0.00';
-        const sum = attendanceData.reduce((acc, item) => acc + getPercentage(item), 0);
-        return (sum / attendanceData.length).toFixed(2);
+        try {
+            const data = JSON.parse(localStorage.getItem('umz_student_info'));
+            return data?.AggAttendance || null;
+        } catch {
+            return null;
+        }
     };
 
     const counts = {
-        good:     attendanceData.filter(i => getPercentage(i) >= 75).length,
-        warning:  attendanceData.filter(i => getPercentage(i) >= 65 && getPercentage(i) < 75).length,
+        good: attendanceData.filter(i => getPercentage(i) >= 75).length,
+        warning: attendanceData.filter(i => getPercentage(i) >= 65 && getPercentage(i) < 75).length,
         critical: attendanceData.filter(i => getPercentage(i) < 65).length,
     };
 
@@ -181,9 +206,9 @@ const Attendance = () => {
                     {/* ── Summary stats row ── */}
                     <div className="grid grid-cols-3 gap-3">
                         {[
-                            { label: 'On Track', count: counts.good,     color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800' },
-                            { label: 'At Risk',  count: counts.warning,  color: 'text-amber-600',   bg: 'bg-amber-50 dark:bg-amber-900/20',     border: 'border-amber-200 dark:border-amber-800'   },
-                            { label: 'Short',    count: counts.critical, color: 'text-red-600',     bg: 'bg-red-50 dark:bg-red-900/20',         border: 'border-red-200 dark:border-red-800'       },
+                            { label: 'On Track', count: counts.good, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800' },
+                            { label: 'At Risk', count: counts.warning, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-800' },
+                            { label: 'Short', count: counts.critical, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200 dark:border-red-800' },
                         ].map(({ label, count, color, bg, border }) => (
                             <div key={label} className={`rounded-xl border ${border} ${bg} p-4 text-center`}>
                                 <p className={`text-xl font-bold ${color}`}>{count}</p>
@@ -195,8 +220,8 @@ const Attendance = () => {
                     {/* ── Tab bar ── */}
                     <div className="flex bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-1 gap-1">
                         {[
-                            { key: 'view',       label: 'Attendance',  Icon: BarChart2  },
-                            { key: 'calculator', label: 'Calculator',  Icon: Calculator },
+                            { key: 'view', label: 'Attendance', Icon: BarChart2 },
+                            { key: 'calculator', label: 'Calculator', Icon: Calculator },
                         ].map(({ key, label, Icon }) => (
                             <button
                                 key={key}
@@ -237,10 +262,10 @@ const Attendance = () => {
 
                                 <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Filter</span>
                                 {[
-                                    { key: 'all',      label: `All (${attendanceData.length})` },
-                                    { key: 'good',     label: `On Track (${counts.good})`     },
-                                    { key: 'warning',  label: `At Risk (${counts.warning})`   },
-                                    { key: 'critical', label: `Short (${counts.critical})`    },
+                                    { key: 'all', label: `All (${attendanceData.length})` },
+                                    { key: 'good', label: `On Track (${counts.good})` },
+                                    { key: 'warning', label: `At Risk (${counts.warning})` },
+                                    { key: 'critical', label: `Short (${counts.critical})` },
                                 ].map(({ key, label }) => (
                                     <button
                                         key={key}
@@ -264,15 +289,15 @@ const Attendance = () => {
                             ) : (
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                     {filteredData.map((item, index) => {
-                                        const pct      = getPercentage(item);
-                                        const status   = getStatus(pct);
-                                        const present  = item.presentCount  || 0;
-                                        const absent   = item.absentCount   || 0;
-                                        const total    = item.totalRecords  || 0;
+                                        const pct = getPercentage(item);
+                                        const status = getStatus(pct);
+                                        const present = item.presentCount || 0;
+                                        const absent = item.absentCount || 0;
+                                        const total = item.totalRecords || 0;
                                         const dutyLeave = item.od != null ? item.od : null;
-                                        const lastDate  = item.lastDate || null;
-                                        const faculty   = item.records?.length > 0 ? item.records[0].faculty : '';
-                                        const title     = item.courseTitle || '';
+                                        const lastDate = item.lastDate || null;
+                                        const faculty = item.records?.length > 0 ? item.records[0].faculty : '';
+                                        const title = item.courseTitle || '';
 
                                         return (
                                             <div
@@ -288,9 +313,16 @@ const Attendance = () => {
                                                         )}
                                                     </div>
                                                     <div className="flex items-center gap-2 shrink-0">
+                                                        {/* RPL badge */}
+                                                        {rplSubjectMap[(item.courseCode || '').trim().toUpperCase()] && (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 border border-green-200 text-green-700 rounded-full text-[10px] font-bold tracking-wide">
+                                                                🏅 RPL · {rplSubjectMap[(item.courseCode || '').trim().toUpperCase()]}
+                                                            </span>
+                                                        )}
                                                         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${status.badge}`}>
                                                             {status.label}
                                                         </span>
+
                                                         <button
                                                             onClick={() => { setSelectedCourse(item); setIsModalOpen(true); }}
                                                             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
@@ -360,8 +392,8 @@ const Attendance = () => {
                             <div className="flex items-center gap-6 px-1">
                                 {[
                                     { label: 'On Track ≥ 75%', dot: 'bg-emerald-500' },
-                                    { label: 'At Risk 65–74%',  dot: 'bg-amber-500'   },
-                                    { label: 'Short < 65%',     dot: 'bg-red-500'     },
+                                    { label: 'At Risk 65–74%', dot: 'bg-amber-500' },
+                                    { label: 'Short < 65%', dot: 'bg-red-500' },
                                 ].map(({ label, dot }) => (
                                     <div key={label} className="flex items-center gap-1.5">
                                         <div className={`w-2 h-2 rounded-full ${dot}`} />
@@ -405,10 +437,10 @@ const Attendance = () => {
                         {/* Modal summary strip */}
                         <div className="grid grid-cols-4 divide-x divide-gray-100 dark:divide-gray-800 border-b border-gray-100 dark:border-gray-800">
                             {[
-                                { label: 'Present',     value: selectedCourse.presentCount || 0 },
-                                { label: 'Absent',      value: selectedCourse.absentCount  || 0 },
-                                { label: 'Total',       value: selectedCourse.totalRecords  || 0 },
-                                { label: 'Duty Leave',  value: selectedCourse.od != null && selectedCourse.od !== '' ? selectedCourse.od : '—' },
+                                { label: 'Present', value: selectedCourse.presentCount || 0 },
+                                { label: 'Absent', value: selectedCourse.absentCount || 0 },
+                                { label: 'Total', value: selectedCourse.totalRecords || 0 },
+                                { label: 'Duty Leave', value: selectedCourse.od != null && selectedCourse.od !== '' ? selectedCourse.od : '—' },
                             ].map(({ label, value }) => (
                                 <div key={label} className="py-3 text-center">
                                     <p className="text-sm font-bold text-gray-900 dark:text-white">{value}</p>

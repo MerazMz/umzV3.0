@@ -6,7 +6,7 @@ import * as cheerio from 'cheerio';
  * @returns {Promise<Array>} - Array of term data with TGPA and subjects
  */
 export async function fetchTermwiseCGPA(client) {
-    console.log('📊 Fetching CGPA data...');
+    // console.log('📊 Fetching CGPA data...');
 
     const response = await client.post(
         'https://ums.lpu.in/lpuums/StudentDashboard.aspx/TermWiseCGPA',
@@ -59,24 +59,24 @@ export async function fetchTermwiseCGPA(client) {
     });
 
     // Display the data
-    console.log('\n📊 TERM-WISE CGPA REPORT\n');
-    console.log('═══════════════════════════════════════════\n');
+    // console.log('\n📊 TERM-WISE CGPA REPORT\n');
+    // console.log('═══════════════════════════════════════════\n');
 
     result.forEach((t, index) => {
-        console.log(`━━━ TERM ${t.term} ━━━  TGPA: ${t.tgpa}\n`);
+        // console.log(`━━━ TERM ${t.term} ━━━  TGPA: ${t.tgpa}\n`);
 
         t.subjects.forEach((s, i) => {
             const [code, ...nameParts] = s.course.split('::');
             const courseName = nameParts.join('::').trim();
-            console.log(`  ${(i + 1).toString().padStart(2)}. ${code.trim().padEnd(10)} ${courseName.padEnd(50)} [${s.grade}]`);
+            // console.log(`  ${(i + 1).toString().padStart(2)}. ${code.trim().padEnd(10)} ${courseName.padEnd(50)} [${s.grade}]`);
         });
 
-        if (index < result.length - 1) {
-            console.log('\n');
-        }
+        // if (index < result.length - 1) {
+        //     console.log('\n');
+        // }
     });
 
-    console.log('\n═══════════════════════════════════════════\n');
+    // console.log('\n═══════════════════════════════════════════\n');
 
     return result;
 }

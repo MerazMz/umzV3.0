@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import logoUmz from '../assets/logoUMz.png';
 import { startLogin, completeLogin } from '../services/api';
+import loginImg1 from '../assets/login1.jpg'
+import loginImg2 from '../assets/login2.jpg'
+import loginImg3 from '../assets/login3.jpg'
 
 const Login = () => {
     const navigate = useNavigate();
@@ -22,7 +25,9 @@ const Login = () => {
 
     // Slider images (empty placeholders)
     const slides = [
-        { id: 1, color: 'from-blue-500/20 to-purple-500/20' },
+        { id: "Secure Login", image: loginImg1 },
+        { id: "Track Your Academic Progress", image: loginImg2 },
+        { id: "See Yourself Improving", image: loginImg3 },
     ];
 
     useEffect(() => {
@@ -166,13 +171,16 @@ const Login = () => {
                         >
                             <div className={`w-full h-full bg-gradient-to-br ${slide.color} flex items-center justify-center`}>
                                 <div className="text-center space-y-4 p-8">
-                                    <div className="w-64 h-64 mx-auto rounded-2xl bg-card/10 backdrop-blur-sm border border-border/20 flex items-center justify-center">
-                                        <span className="text-6xl font-bold text-foreground/30">
-                                            {slide.id}
-                                        </span>
+                                    <div className={`w-full h-full bg-gradient-to-br ${slide.color} flex items-center justify-center`}>
+                                        <div className="text-center space-y-4 p-8">
+                                            <div className="w-120 h-120 mx-auto rounded-2xl bg-card/10 backdrop-blur-sm border border-border/20 flex items-center justify-center">
+                                                <img src={slide.image} alt="login" className='w-full h-full object-cover' />
+                                            </div>
+                                        </div>
                                     </div>
                                     <p className="text-lg text-foreground/60 font-medium">
-                                        Slide {slide.id}
+                                        {slide.id}
+
                                     </p>
                                 </div>
                             </div>

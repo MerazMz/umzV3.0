@@ -34,7 +34,7 @@ const mutualShiftPostSchema = new mongoose.Schema(
         },
         desiredFloor: {
             type: String,
-            required: true,
+            default: '',
             trim: true,
         },
         desiredRoom: {

@@ -1,78 +1,110 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { X, Info, Calculator } from 'lucide-react';
+import { Info, Calculator, BookOpen, ChevronDown, ChevronUp, Tag } from 'lucide-react';
 import Sidebar from './Sidebar';
-import { getStudentInfo } from '../services/api';
+import { getStudentInfo, getResult } from '../services/api';
 import TPGACalculator from './TPGACalculator';
+import OverallCGPACalculator from './OverallCGPACalculator';
+
+const gradeColors = {
+    'O':  'bg-violet-100 text-violet-800',
+    'A+': 'bg-emerald-100 text-emerald-800',
+    'A':  'bg-blue-100 text-blue-800',
+    'B+': 'bg-amber-100 text-amber-800',
+    'B':  'bg-orange-100 text-orange-800',
+    'C+': 'bg-pink-100 text-pink-800',
+    'C':  'bg-rose-100 text-rose-800',
+    'D':  'bg-gray-200 text-gray-700',
+    'E':  'bg-red-100 text-red-700',
+    'F':  'bg-red-200 text-red-800',
+};
+const gradeLabel = (g) => gradeColors[g] || 'bg-gray-100 text-gray-600';
 
 const CGPA = () => {
     const navigate = useNavigate();
     const [studentInfo, setStudentInfo] = useState(null);
+    const [resultData, setResultData] = useState(null);
+    const [expandedTerms, setExpandedTerms] = useState({});
     const [loading, setLoading] = useState(true);
+    const [resultLoading, setResultLoading] = useState(false);
     const [error, setError] = useState('');
-    const [selectedSemester, setSelectedSemester] = useState(null);
-    const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false);
     const [hoveredGrade, setHoveredGrade] = useState(null);
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
     const [activeTab, setActiveTab] = useState(() => {
-        // Load cached tab preference
         const cachedTab = localStorage.getItem('umz_cgpa_active_tab');
         return cachedTab || 'view';
     });
+    const [calcMode, setCalcMode] = useState(() => {
+        return localStorage.getItem('umz_cgpa_calc_mode') || 'term';
+    });
+
+    const fetchResultData = async (force = false) => {
+        if (!force) {
+            const cached = localStorage.getItem('umz_result_data');
+            if (cached) {
+                try {
+                    const parsed = JSON.parse(cached);
+                    setResultData(parsed);
+                    const exp = {};
+                    (parsed.semesters || []).forEach(s => { exp[s.termId] = false; });
+                    (parsed.rplGrades || []).forEach(g => { exp['rpl_' + g.termId] = false; });
+                    setExpandedTerms(exp);
+                    return;
+                } catch { localStorage.removeItem('umz_result_data'); }
+            }
+        }
+        const cookies = localStorage.getItem('umz_cookies');
+        if (!cookies) return;
+        try {
+            setResultLoading(true);
+            const res = await getResult(cookies);
+            setResultData(res.data);
+            localStorage.setItem('umz_result_data', JSON.stringify(res.data));
+            const exp = {};
+            (res.data.semesters || []).forEach(s => { exp[s.termId] = false; });
+            (res.data.rplGrades || []).forEach(g => { exp['rpl_' + g.termId] = false; });
+            setExpandedTerms(exp);
+        } catch (e) { console.error('Result fetch error:', e.message); }
+        finally { setResultLoading(false); }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
-            // First, always check for cached data
             const cachedInfo = localStorage.getItem('umz_student_info');
             if (cachedInfo) {
                 try {
-                    const parsed = JSON.parse(cachedInfo);
-                    setStudentInfo(parsed);
+                    setStudentInfo(JSON.parse(cachedInfo));
                     setLoading(false);
-                    return; // Use cache, don't fetch
-                } catch {
-                    localStorage.removeItem('umz_student_info');
-                }
+                } catch { localStorage.removeItem('umz_student_info'); }
             }
-
-            // No cache available - check if we have cookies
             const cookies = localStorage.getItem('umz_cookies');
-
-            if (!cookies) {
-                // No cookies and no cache - show empty state
-                console.log('⚠️ No cookies and no cached student info');
-                setLoading(false);
-                setError('');
-                setStudentInfo(null);
-                return;
-            }
-
-            // We have cookies but no cache - fetch fresh data
-            try {
-                setLoading(true);
-                const result = await getStudentInfo(cookies);
-                setStudentInfo(result.data);
-                localStorage.setItem('umz_student_info', JSON.stringify(result.data));
-                setError('');
-            } catch (err) {
-                setError(err.message || 'Failed to load CGPA data');
-                if (err.message?.includes('session') || err.message?.includes('unauthorized')) {
-                    // Session expired - remove cookies
-                    localStorage.removeItem('umz_cookies');
-                }
-            } finally {
-                setLoading(false);
+            if (!cookies) { setLoading(false); return; }
+            if (!cachedInfo) {
+                try {
+                    setLoading(true);
+                    const result = await getStudentInfo(cookies);
+                    setStudentInfo(result.data);
+                    localStorage.setItem('umz_student_info', JSON.stringify(result.data));
+                } catch (err) {
+                    setError(err.message || 'Failed to load CGPA data');
+                } finally { setLoading(false); }
             }
         };
-
         fetchData();
+        fetchResultData();
     }, [navigate]);
+
+    const toggleTerm = (id) => setExpandedTerms(prev => ({ ...prev, [id]: !prev[id] }));
 
     // Cache active tab preference
     useEffect(() => {
         localStorage.setItem('umz_cgpa_active_tab', activeTab);
     }, [activeTab]);
+
+    useEffect(() => {
+        localStorage.setItem('umz_cgpa_calc_mode', calcMode);
+    }, [calcMode]);
 
     if (loading) {
         return (
@@ -344,104 +376,138 @@ const CGPA = () => {
                                 </ResponsiveContainer>
                             </div>
 
-                            {/* Semester Cards Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {(studentInfo?.TermwiseCGPA || []).map((semester, idx) => (
-                                    <div
-                                        key={idx}
-                                        onClick={() => {
-                                            setSelectedSemester(semester);
-                                            setIsSemesterModalOpen(true);
-                                        }}
-                                        className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all cursor-pointer hover:scale-[1.02]"
-                                    >
-                                        <div className="flex items-center justify-between mb-3">
-                                            <h4 className="font-semibold text-gray-900">
-                                                Semester {semester.term}
-                                            </h4>
-                                            <span className="px-3 py-1 bg-gray-100 text-gray-900 rounded-lg text-sm font-bold">
-                                                {semester.tgpa}
-                                            </span>
+                            {/* Result Accordion */}
+                            {resultLoading ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-900 border-r-transparent" />
+                                    <span className="ml-3 text-sm text-gray-500">Loading result data...</span>
+                                </div>
+                            ) : resultData ? (
+                                <div className="space-y-4">
+                                    <h3 className="text-lg font-semibold text-gray-900">Term-wise Result</h3>
+                                    {(resultData.semesters || []).map(sem => {
+                                        const isOpen = expandedTerms[sem.termId];
+                                        const totalCredits = (sem.subjects || []).reduce((a, s) => a + (s.credit || 0), 0);
+                                        return (
+                                            <div key={sem.termId} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                                <button onClick={() => toggleTerm(sem.termId)} className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center"><BookOpen className="w-5 h-5 text-white" /></div>
+                                                        <div className="text-left">
+                                                            <p className="font-semibold text-gray-900">Term {sem.termId}</p>
+                                                            <p className="text-xs text-gray-500">{(sem.subjects||[]).length} subjects · {totalCredits.toFixed(1)} credits</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        {sem.tgpa && <span className="px-3 py-1 bg-gray-100 text-gray-900 rounded-lg text-sm font-bold">TGPA {sem.tgpa}</span>}
+                                                        {isOpen ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                                                    </div>
+                                                </button>
+                                                {isOpen && (
+                                                    <div className="border-t border-gray-100">
+                                                        <div className="grid grid-cols-12 px-6 py-2 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                                            <div className="col-span-2">Code</div><div className="col-span-7">Course Name</div>
+                                                            <div className="col-span-1 text-center">Cr.</div><div className="col-span-2 text-center">Grade</div>
+                                                        </div>
+                                                        {(sem.subjects || []).map((sub, idx) => (
+                                                            <div key={idx} className={`grid grid-cols-12 px-6 py-3 items-center text-sm border-t border-gray-50 hover:bg-gray-50 transition-colors ${idx%2===0?'':'bg-gray-50/50'}`}>
+                                                                <div className="col-span-2 font-mono text-xs text-gray-500">{sub.code}</div>
+                                                                <div className="col-span-7 font-medium text-gray-900 pr-4">{sub.name}</div>
+                                                                <div className="col-span-1 text-center text-gray-600 text-xs">{sub.credit!=null?sub.credit.toFixed(1):'—'}</div>
+                                                                <div className="col-span-2 text-center">{sub.grade?<span className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-bold ${gradeLabel(sub.grade)}`}>{sub.grade}</span>:'—'}</div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    {/* RPL Section */}
+                                    {(resultData.rplGrades||[]).length > 0 && (
+                                        <div className="space-y-4 pt-2">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex-1 h-px bg-amber-200" />
+                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-full">
+                                                    <Tag className="w-3.5 h-3.5 text-amber-600" />
+                                                    <span className="text-xs font-semibold text-amber-700 uppercase tracking-wide">RPL Grades</span>
+                                                </div>
+                                                <div className="flex-1 h-px bg-amber-200" />
+                                            </div>
+                                            {(resultData.rplGrades||[]).map(grp => {
+                                                const key = 'rpl_'+grp.termId;
+                                                const isOpen = expandedTerms[key];
+                                                return (
+                                                    <div key={key} className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
+                                                        <button onClick={() => toggleTerm(key)} className="w-full flex items-center justify-between px-6 py-4 hover:bg-amber-50/50 transition-colors">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center"><Tag className="w-5 h-5 text-white" /></div>
+                                                                <div className="text-left">
+                                                                    <p className="font-semibold text-gray-900">RPL — Term {grp.termId}</p>
+                                                                    <p className="text-xs text-gray-500">{grp.subjects.length} subject(s)</p>
+                                                                </div>
+                                                            </div>
+                                                            {isOpen?<ChevronUp className="w-5 h-5 text-gray-400"/>:<ChevronDown className="w-5 h-5 text-gray-400"/>}
+                                                        </button>
+                                                        {isOpen && (
+                                                            <div className="border-t border-amber-50">
+                                                                <div className="grid grid-cols-12 px-6 py-2 bg-amber-50/60 text-xs font-semibold text-amber-700 uppercase tracking-wide">
+                                                                    <div className="col-span-2">Code</div><div className="col-span-8">Course Name</div><div className="col-span-2 text-center">Grade</div>
+                                                                </div>
+                                                                {grp.subjects.map((sub,idx)=>(
+                                                                    <div key={idx} className={`grid grid-cols-12 px-6 py-3 items-center text-sm border-t border-amber-50 ${idx%2===0?'':'bg-amber-50/20'}`}>
+                                                                        <div className="col-span-2 font-mono text-xs text-gray-500">{sub.code}</div>
+                                                                        <div className="col-span-8 font-medium text-gray-900 pr-4">{sub.name}</div>
+                                                                        <div className="col-span-2 text-center">{sub.grade?<span className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-bold ${gradeLabel(sub.grade)}`}>{sub.grade}</span>:'—'}</div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
-                                        {semester.subjects && semester.subjects.length > 0 && (
-                                            <p className="text-xs text-gray-500">
-                                                {semester.subjects.length} Courses
-                                            </p>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="text-center py-10 text-gray-400 text-sm">No result data available.</div>
+                            )}
                         </>
                     ) : (
-                        <TPGACalculator semesterData={studentInfo?.TermwiseCGPA || []} />
-                    )}
-                </div>
-
-                {/* Semester Detail Modal */}
-                {isSemesterModalOpen && selectedSemester && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col">
-                            {/* Modal Header */}
-                            <div className="flex items-start justify-between p-6 border-b border-gray-200">
-                                <div>
-                                    <h2 className="text-2xl font-bold text-gray-900 mb-1">
-                                        Semester {selectedSemester.term}
-                                    </h2>
-                                    <div className="flex items-center gap-2 mt-2">
-                                        <span className="text-sm text-gray-500">TGPA:</span>
-                                        <span className="px-3 py-1 bg-gray-900 text-white rounded-lg text-sm font-bold">
-                                            {selectedSemester.tgpa}
-                                        </span>
-                                    </div>
-                                </div>
+                        <div className="space-y-6">
+                            {/* Calculator sub-tab toggle */}
+                            <div className="flex gap-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-2">
                                 <button
-                                    onClick={() => {
-                                        setIsSemesterModalOpen(false);
-                                        setSelectedSemester(null);
-                                    }}
-                                    className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                                    onClick={() => setCalcMode('term')}
+                                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                                        calcMode === 'term'
+                                            ? 'bg-gray-900 text-white shadow-sm'
+                                            : 'text-gray-600 hover:bg-gray-50'
+                                    }`}
                                 >
-                                    <X className="h-6 w-6 text-gray-600" />
+                                    📘 Term GPA (TGPA)
+                                </button>
+                                <button
+                                    onClick={() => setCalcMode('overall')}
+                                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                                        calcMode === 'overall'
+                                            ? 'bg-gray-900 text-white shadow-sm'
+                                            : 'text-gray-600 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    🎓 Overall CGPA
                                 </button>
                             </div>
 
-                            {/* Modal Body */}
-                            <div className="flex-1 overflow-y-auto p-6">
-                                {selectedSemester.subjects && selectedSemester.subjects.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {selectedSemester.subjects.map((subject, idx) => {
-                                            const [code, ...nameParts] = subject.course.split('::');
-                                            const courseName = nameParts.join('::').trim();
-
-                                            return (
-                                                <div
-                                                    key={idx}
-                                                    className="bg-gray-50 rounded-xl p-4 flex items-start justify-between gap-4 hover:bg-gray-100 transition-colors"
-                                                >
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-xs font-mono text-gray-500 mb-1">
-                                                            {code?.trim()}
-                                                        </p>
-                                                        <p className="text-sm font-medium text-gray-900">
-                                                            {courseName}
-                                                        </p>
-                                                    </div>
-                                                    <span className="px-3 py-2 bg-gray-900 text-white rounded-lg text-sm font-bold flex-shrink-0">
-                                                        {subject.grade}
-                                                    </span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-12 text-gray-500">
-                                        No subjects available
-                                    </div>
-                                )}
-                            </div>
+                            {calcMode === 'term' ? (
+                                <TPGACalculator semesterData={studentInfo?.TermwiseCGPA || []} resultData={resultData} />
+                            ) : (
+                                <OverallCGPACalculator semesterData={studentInfo?.TermwiseCGPA || []} resultData={resultData} />
+                            )}
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
+
+
             </main>
         </div>
     );

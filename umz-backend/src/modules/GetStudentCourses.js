@@ -6,7 +6,7 @@ import * as cheerio from 'cheerio';
  * @returns {Promise<Array>} - Array of course data with details
  */
 export async function fetchStudentCourses(client) {
-    console.log('📊 Fetching Student Courses...');
+    // console.log('📊 Fetching Student Courses...');
 
     try {
         const response = await client.post(
@@ -101,23 +101,23 @@ export async function fetchStudentCourses(client) {
             });
         });
 
-        console.log('\n📚 STUDENT COURSES\n');
+        // console.log('\n📚 STUDENT COURSES\n');
 
-        courses.forEach((course, index) => {
-            console.log(`${index + 1}. ${course.courseCode} - ${course.courseName}`);
-            console.log(`   Term: ${course.term} | Attendance: ${course.attendance}%`);
-            console.log(`   Roll No: ${course.rollNo} | Group: ${course.group}`);
-            console.log(`   Exam Pattern: ${course.examPattern}`);
-            console.log('');
-        });
+        // courses.forEach((course, index) => {
+        //     console.log(`${index + 1}. ${course.courseCode} - ${course.courseName}`);
+        //     console.log(`   Term: ${course.term} | Attendance: ${course.attendance}%`);
+        //     console.log(`   Roll No: ${course.rollNo} | Group: ${course.group}`);
+        //     console.log(`   Exam Pattern: ${course.examPattern}`);
+        //     console.log('');
+        // });
 
         return courses;
 
     } catch (error) {
-        console.error('❌ Error fetching courses:', error.message);
+        // console.error('❌ Error fetching courses:', error.message);
         if (error.response) {
-            console.error('Response status:', error.response.status);
-            console.error('Response data:', error.response.data);
+            // console.error('Response status:', error.response.status);
+            // console.error('Response data:', error.response.data);
         }
         throw error;
     }

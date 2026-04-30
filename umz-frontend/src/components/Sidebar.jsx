@@ -19,7 +19,8 @@ import {
     Moon,
     Trophy,
     Eye,
-    Home
+    Home,
+    Sparkles
 } from 'lucide-react';
 import { startLogin, completeLogin, getStudentInfo } from '../services/api';
 import CaptchaModal from './CaptchaModal';
@@ -113,13 +114,11 @@ const Sidebar = () => {
     }, [location.pathname]);
 
     const handleLogout = () => {
-        // Clear all stored data including cache
-        localStorage.removeItem('umz_cookies');
-        localStorage.removeItem('umz_student_info');
-        localStorage.removeItem('umz_attendance_data');
-        localStorage.removeItem('umz_marks_data');
-        localStorage.removeItem('umz_courses_data');
-        localStorage.removeItem('umz_timetable_data');
+        // Keep only credentials — clear every other key
+        const keep = new Set(['umz_regno', 'umz_password']);
+        Object.keys(localStorage).forEach(key => {
+            if (!keep.has(key)) localStorage.removeItem(key);
+        });
 
         // Redirect to login
         navigate('/');
@@ -157,8 +156,10 @@ const Sidebar = () => {
                     console.log('❌ Cookies expired/invalid:', testError.message);
                     setCaptchaLoading(false);
 
-                    // Remove expired cookies
+                    // Remove expired cookies and session-specific data
                     localStorage.removeItem('umz_cookies');
+                    localStorage.removeItem('umz_result_data');
+                    localStorage.removeItem('umz_ai_buddy_history');
 
                     // Fall through to login flow below
                 }
@@ -269,6 +270,12 @@ const Sidebar = () => {
             title: "Hostel",
             items: [
                 { name: "Hostel", icon: Home, path: "/mutual-shift" },
+            ]
+        },
+        {
+            title: "AI",
+            items: [
+                { name: "AI Buddy", icon: Sparkles, path: "/ai-buddy" },
             ]
         },
         {

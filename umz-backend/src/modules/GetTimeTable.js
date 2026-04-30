@@ -7,7 +7,7 @@ import * as cheerio from 'cheerio';
  * @returns {Promise<Object>} - Timetable data organized by day
  */
 export async function fetchTimeTable(client, termId) {
-    console.log(`📅 Fetching Student Timetable for Term: ${termId}...`);
+    // console.log(`📅 Fetching Student Timetable for Term: ${termId}...`);
 
     try {
         const response = await client.post(
@@ -99,38 +99,38 @@ export async function fetchTimeTable(client, termId) {
         });
 
         // Display the timetable
-        console.log('\n📚 TIMETABLE\n');
-        console.log('═══════════════════════════════════════════\n');
+        // console.log('\n📚 TIMETABLE\n');
+        // console.log('═══════════════════════════════════════════\n');
 
         days.forEach(day => {
             if (timetable[day]) {
-                console.log(`\n📅 ${day.toUpperCase()}`);
-                console.log('─'.repeat(43));
+                // console.log(`\n📅 ${day.toUpperCase()}`);
+                // console.log('─'.repeat(43));
 
                 if (timetable[day].length === 0) {
-                    console.log('   No classes scheduled.\n');
+                    // console.log('   No classes scheduled.\n');
                 } else {
                     timetable[day].forEach((cls, index) => {
-                        console.log(`\n   ${index + 1}. ${cls.time}`);
-                        console.log(`      📖 ${cls.courseCode} (${cls.type})`);
-                        console.log(`      🏫 Room: ${cls.room}`);
-                        console.log(`      👥 Section: ${cls.section}`);
-                        console.log(`      👨‍🏫 Teacher: ${cls.teacher}`);
+                        // console.log(`\n   ${index + 1}. ${cls.time}`);
+                        // console.log(`      📖 ${cls.courseCode} (${cls.type})`);
+                        // console.log(`      🏫 Room: ${cls.room}`);
+                        // console.log(`      👥 Section: ${cls.section}`);
+                        // console.log(`      👨‍🏫 Teacher: ${cls.teacher}`);
                     });
-                    console.log('');
+                    // console.log('');
                 }
             }
         });
 
-        console.log('═══════════════════════════════════════════\n');
+        // console.log('═══════════════════════════════════════════\n');
 
         return timetable;
 
     } catch (error) {
-        console.error('❌ Error fetching timetable:', error.message);
+        // console.error('❌ Error fetching timetable:', error.message);
         if (error.response) {
-            console.error('Response status:', error.response.status);
-            console.error('Response data:', error.response.data);
+            // console.error('Response status:', error.response.status);
+            // console.error('Response data:', error.response.data);
         }
         throw error;
     }

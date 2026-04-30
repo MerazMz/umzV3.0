@@ -6,7 +6,7 @@ import * as cheerio from 'cheerio';
  * @returns {Promise<string|null>} - Password expiry message or null
  */
 export async function fetchPasswordExpiry(client) {
-    console.log('🔑 Fetching Password Expiry Warning...');
+    // console.log('🔑 Fetching Password Expiry Warning...');
 
     try {
         const response = await client.get(
@@ -26,15 +26,15 @@ export async function fetchPasswordExpiry(client) {
         const passwordExpiryMessage = passwordExpirySpan.text().trim();
 
         if (passwordExpiryMessage) {
-            console.log(`✅ Password Expiry: ${passwordExpiryMessage}`);
+            // console.log(`✅ Password Expiry: ${passwordExpiryMessage}`);
             return passwordExpiryMessage;
         } else {
-            console.log('ℹ️  No password expiry message found');
+            // console.log('ℹ️  No password expiry message found');
             return null;
         }
 
     } catch (error) {
-        console.error('❌ Error fetching password expiry:', error.message);
+        // console.error('❌ Error fetching password expiry:', error.message);
         // Don't throw - return null so other data can still be fetched
         return null;
     }

@@ -6,7 +6,7 @@ import * as cheerio from 'cheerio';
  * @returns {Promise<Array>} - Array of term data with subjects and marks breakdown
  */
 export async function fetchTermWiseMarks(client) {
-    console.log('📊 Fetching Term Wise Marks data...');
+    // console.log('📊 Fetching Term Wise Marks data...');
 
     const response = await client.post(
         'https://ums.lpu.in/lpuums/StudentDashboard.aspx/TermWiseMarks',
@@ -78,35 +78,35 @@ export async function fetchTermWiseMarks(client) {
     });
 
     // Display the data
-    console.log('\n📊 TERM-WISE MARKS BREAKDOWN\n');
-    console.log('═══════════════════════════════════════════\n');
+    // console.log('\n📊 TERM-WISE MARKS BREAKDOWN\n');
+    // console.log('═══════════════════════════════════════════\n');
 
     terms.forEach((term, termIndex) => {
-        console.log(`\n━━━ TERM: ${term.termId} ━━━\n`);
+        // console.log(`\n━━━ TERM: ${term.termId} ━━━\n`);
 
         term.subjects.forEach((subject, subjectIndex) => {
-            console.log(`${subjectIndex + 1}. ${subject.courseCode} - ${subject.courseName}`);
-            console.log('   ┌─────────────────────────────────────────┐');
+            // console.log(`${subjectIndex + 1}. ${subject.courseCode} - ${subject.courseName}`);
+            // console.log('   ┌─────────────────────────────────────────┐');
 
             subject.marksBreakdown.forEach((mark, i) => {
                 const isLast = i === subject.marksBreakdown.length - 1;
                 const border = isLast ? '   └' : '   │';
-                console.log(`${border} ${mark.type.padEnd(30)} │ ${mark.marks.padEnd(10)} │ ${mark.weightage}`);
+                // console.log(`${border} ${mark.type.padEnd(30)} │ ${mark.marks.padEnd(10)} │ ${mark.weightage}`);
             });
 
-            if (subjectIndex < term.subjects.length - 1) {
-                console.log('   └─────────────────────────────────────────┘\n');
-            } else {
-                console.log('   └─────────────────────────────────────────┘');
-            }
+            // if (subjectIndex < term.subjects.length - 1) {
+            //     // console.log('   └─────────────────────────────────────────┘\n');
+            // } else {
+            //     // console.log('   └─────────────────────────────────────────┘');
+            // }
         });
 
-        if (termIndex < terms.length - 1) {
-            console.log('\n');
-        }
+        // if (termIndex < terms.length - 1) {
+        //     // console.log('\n');
+        // }
     });
 
-    console.log('\n═══════════════════════════════════════════\n');
+    // console.log('\n═══════════════════════════════════════════\n');
 
     return terms;
 }

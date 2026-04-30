@@ -298,3 +298,29 @@ export async function getAllMutualShiftPosts() {
     if (!response.ok) throw new Error(data.error || 'Failed to fetch posts');
     return data;
 }
+
+/**
+ * Get student result (subjects, credits, grades, CGPA) grouped by semester
+ * @param {string} cookies - Session cookies
+ * @returns {Promise<{success: boolean, data: {cgpa: string, semesters: Array}}>}
+ */
+export async function getResult(cookies) {
+    const response = await fetch(`${API_BASE_URL}/result`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cookies }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch result');
+    return data;
+}
+export async function sendAIBuddyMessage(message, data, history) {
+    const response = await fetch(`${API_BASE_URL}/ai-buddy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, data, history }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'AI Buddy error');
+    return result;
+}

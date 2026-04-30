@@ -7,7 +7,7 @@ import fs from 'fs';
  * @returns {Promise<Object>} - Filtered student information
  */
 export async function fetchStudentBasicInformation(client) {
-    console.log('📊 Fetching Student Basic Information...');
+    // console.log('📊 Fetching Student Basic Information...');
 
     const response = await client.post(
         'https://ums.lpu.in/lpuums/StudentDashboard.aspx/GetStudentBasicInformation',
@@ -38,15 +38,15 @@ export async function fetchStudentBasicInformation(client) {
             // Decode base64 image and save
             const imageBuffer = Buffer.from(filteredInfo.StudentPicture, 'base64');
             fs.writeFileSync('image.png', imageBuffer);
-            console.log('✅ Student picture saved as image.png');
+            // console.log('✅ Student picture saved as image.png');
         } catch (error) {
             console.error('❌ Error saving image:', error.message);
         }
     }
 
     // Display filtered information
-    console.log('\n👤 STUDENT BASIC INFORMATION\n');
-    console.log('═══════════════════════════════════════════\n');
+    // console.log('\n👤 STUDENT BASIC INFORMATION\n');
+    // console.log('═══════════════════════════════════════════\n');
 
     // Display in a formatted way
     const displayOrder = [
@@ -75,20 +75,20 @@ export async function fetchStudentBasicInformation(client) {
     displayOrder.forEach(key => {
         if (filteredInfo[key]) {
             const label = key.replace(/([A-Z])/g, ' $1').trim();
-            console.log(`${label}: ${filteredInfo[key]}`);
+            // console.log(`${label}: ${filteredInfo[key]}`);
         }
     });
 
     // Display remaining fields that weren't in displayOrder
-    console.log('\n--- Additional Information ---\n');
+    // console.log('\n--- Additional Information ---\n');
     for (const [key, value] of Object.entries(filteredInfo)) {
         if (!displayOrder.includes(key) && key !== 'StudentPicture' && key !== '__type') {
             const label = key.replace(/([A-Z])/g, ' $1').trim();
-            console.log(`${label}: ${value}`);
+            // console.log(`${label}: ${value}`);
         }
     }
 
-    console.log('\n═══════════════════════════════════════════\n');
+    // console.log('\n═══════════════════════════════════════════\n');
 
     return filteredInfo;
 }

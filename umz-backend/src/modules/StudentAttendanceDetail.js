@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 
 export async function fetchStudentAttendanceDetail(client) {
-    console.log('📊 Fetching Student Attendance Detail...');
+    // console.log('📊 Fetching Student Attendance Detail...');
 
     try {
         const response = await client.post(
@@ -18,7 +18,7 @@ export async function fetchStudentAttendanceDetail(client) {
         const html = response.data.d;
 
         if (!html) {
-            console.error('❌ No HTML data received from attendance API');
+            // console.error('❌ No HTML data received from attendance API');
             return [];
         }
 
@@ -35,7 +35,7 @@ export async function fetchStudentAttendanceDetail(client) {
                 const $div = $(courseDiv);
 
                 const courseHeading = $div.find('p.main-heading').first().text().trim();
-                console.log(`📝 Processing course heading: "${courseHeading}"`);
+                // console.log(`📝 Processing course heading: "${courseHeading}"`);
 
                 // More flexible regex to match course code
                 const codeMatch = courseHeading.match(/Course\s*code\s*:\s*([A-Z0-9]+)/i);
@@ -43,7 +43,7 @@ export async function fetchStudentAttendanceDetail(client) {
 
                 // Skip if we've already added this course
                 if (seenCodes.has(courseCode)) {
-                    console.log(`⚠️  Skipping duplicate block for: ${courseCode}`);
+                    // console.log(`⚠️  Skipping duplicate block for: ${courseCode}`);
                     return;
                 }
 
@@ -64,7 +64,7 @@ export async function fetchStudentAttendanceDetail(client) {
                             });
                         }
                     } catch (rowError) {
-                        console.error('❌ Error processing attendance row:', rowError.message);
+                        // console.error('❌ Error processing attendance row:', rowError.message);
                     }
                 });
 
@@ -78,41 +78,41 @@ export async function fetchStudentAttendanceDetail(client) {
                     };
                     courses.push(courseData);
                     seenCodes.add(courseCode);
-                    console.log(`✅ Added course: ${courseCode} (${courseData.presentCount}/${courseData.totalRecords})`);
+                    // console.log(`✅ Added course: ${courseCode} (${courseData.presentCount}/${courseData.totalRecords})`);
                 }
             } catch (courseError) {
-                console.error('❌ Error processing course div:', courseError.message);
+                // console.error('❌ Error processing course div:', courseError.message);
             }
         });
 
         // Pretty output
         if (courses.length > 0) {
-            console.log('\n📊 DETAILED ATTENDANCE RECORDS');
-            console.log('══════════════════════════════════════════════════\n');
+            // console.log('\n📊 DETAILED ATTENDANCE RECORDS');
+            // console.log('══════════════════════════════════════════════════\n');
 
             courses.forEach(course => {
-                console.log(`━━━ ${course.courseCode} ━━━`);
-                console.log(`Total: ${course.totalRecords} | Present: ${course.presentCount} | Absent: ${course.absentCount}\n`);
+                // console.log(`━━━ ${course.courseCode} ━━━`);
+                // console.log(`Total: ${course.totalRecords} | Present: ${course.presentCount} | Absent: ${course.absentCount}\n`);
 
                 course.records.forEach((r, i) => {
                     const dot = r.status === 'P' ? '🟢' : '🔴';
-                    console.log(
-                        ` ${String(i + 1).padStart(2)}. ${r.date.padEnd(12)} ${r.time.padEnd(18)} [${r.type}] ${dot} ${r.status} - ${r.faculty}`
-                    );
+                    // console.log(
+                    //     ` ${String(i + 1).padStart(2)}. ${r.date.padEnd(12)} ${r.time.padEnd(18)} [${r.type}] ${dot} ${r.status} - ${r.faculty}`
+                    // );
                 });
 
-                console.log('\n');
+                // console.log('\n');
             });
 
-            console.log('══════════════════════════════════════════════════\n');
+            // console.log('══════════════════════════════════════════════════\n');
         } else {
-            console.log('⚠️  No attendance records found');
+            // console.log('⚠️  No attendance records found');
         }
 
         return courses;
     } catch (error) {
-        console.error('❌ Error in fetchStudentAttendanceDetail:', error.message);
-        console.error('Stack:', error.stack);
+        // console.error('❌ Error in fetchStudentAttendanceDetail:', error.message);
+        // console.error('Stack:', error.stack);
         throw new Error(`Failed to fetch attendance details: ${error.message}`);
     }
 }

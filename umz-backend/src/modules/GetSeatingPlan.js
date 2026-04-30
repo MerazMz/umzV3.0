@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 
 export async function fetchStudentSeatingPlan(client) {
-    console.log('📊 Fetching Student Seating Plan...');
+    // console.log('📊 Fetching Student Seating Plan...');
 
     const response = await client.post(
         'https://ums.lpu.in/lpuums/StudentDashboard.aspx/GetSeatingPlan',
@@ -16,17 +16,17 @@ export async function fetchStudentSeatingPlan(client) {
         }
     );
 
-    console.log('📦 Raw response:', JSON.stringify(response.data).substring(0, 200));
+    // console.log('📦 Raw response:', JSON.stringify(response.data).substring(0, 200));
 
     if (!response.data?.d) {
-        console.error('❌ No "d" property in response');
+        // console.error('❌ No "d" property in response');
         throw new Error('Invalid seating plan response');
     }
 
     const $ = cheerio.load(response.data.d);
     const seatingPlan = [];
 
-    console.log('🔍 Found .mycoursesdiv elements:', $('.mycoursesdiv').length);
+    // console.log('🔍 Found .mycoursesdiv elements:', $('.mycoursesdiv').length);
 
     $('.mycoursesdiv').each((_, el) => {
         const container = $(el);
@@ -72,18 +72,18 @@ export async function fetchStudentSeatingPlan(client) {
     });
 
     // Pretty output
-    console.log('\n🪑 SEATING PLAN\n');
-    console.log(`📊 Total items found: ${seatingPlan.length}`);
+    // console.log('\n🪑 SEATING PLAN\n');
+    // console.log(`📊 Total items found: ${seatingPlan.length}`);
 
-    seatingPlan.forEach((e, i) => {
-        console.log(`${i + 1}. ${e.courseCode} - ${e.courseName}`);
-        console.log(`   📅 Date: ${e.date}`);
-        console.log(`   🧪 Exam: ${e.exam}`);
-        console.log(`   🏫 Room: ${e.room}`);
-        console.log(`   ⏱ Reporting: ${e.reportingTime}`);
-        console.log(`   📌 Status: ${e.status}\n`);
-    });
+    // seatingPlan.forEach((e, i) => {
+    //     // console.log(`${i + 1}. ${e.courseCode} - ${e.courseName}`);
+    //     // console.log(`   📅 Date: ${e.date}`);
+    //     // console.log(`   🧪 Exam: ${e.exam}`);
+    //     // console.log(`   🏫 Room: ${e.room}`);
+    //     // console.log(`   ⏱ Reporting: ${e.reportingTime}`);
+    //     // console.log(`   📌 Status: ${e.status}\n`);
+    // });
 
-    console.log('✅ Returning seating plan data:', JSON.stringify(seatingPlan, null, 2));
+    // console.log('✅ Returning seating plan data:', JSON.stringify(seatingPlan, null, 2));
     return seatingPlan;
 }

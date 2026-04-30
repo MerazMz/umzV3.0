@@ -6,7 +6,7 @@ import * as cheerio from 'cheerio';
  * @returns {Promise<Object>} - Hostel information { vid, name, hostel, roomNo }
  */
 export async function fetchHostelInfo(client) {
-    console.log('🏠 Fetching Student Hostel Information...');
+    // console.log('🏠 Fetching Student Hostel Information...');
 
     const response = await client.get(
         'https://ums.lpu.in/lpuums/frmStudentHostelLeaveApplicationTermWise.aspx',
@@ -35,6 +35,6 @@ export async function fetchHostelInfo(client) {
 
     const result = { vid, name, hostel, roomNo };
 
-    console.log('✅ Hostel Info:', result);
+    // console.log('✅ Hostel Info:', result);
     return result;
 }

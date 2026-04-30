@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import axios from 'axios';
@@ -17,6 +18,8 @@ import { fetchStudentCourses } from './src/modules/GetStudentCourses.js';
 import { fetchStudentSeatingPlan } from './src/modules/GetSeatingPlan.js';
 import { fetchPasswordExpiry } from './src/modules/GetPasswordExpiry.js';
 import { fetchHostelInfo } from './src/modules/GetHostelInfo.js';
+import { fetchStudentResult } from './src/modules/GetStudentResult.js';
+import { getAIBuddyResponse } from './src/modules/AiBuddy.js';
 import MutualShiftPost from './src/models/MutualShiftPost.js';
 
 const app = express();
@@ -28,7 +31,7 @@ const sessionPool = new SessionPool(20);
 // Connect to MongoDB
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/umz';
 mongoose.connect(MONGO_URI)
-    .then(() => console.log(`✅ MongoDB connected: ${MONGO_URI}`))
+    .then(() => console.log(`✅ MongoDB connected.`))
     .catch(err => console.error('❌ MongoDB connection error:', err.message));
 
 // Middleware
@@ -36,7 +39,7 @@ app.use(cors({
     origin: process.env.FRONTEND_URL || 'http://localhost:5173',
     credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 
 // In-memory session storage
 // Structure: Map<sessionId, { browser, page, regno, password, timestamp }>
@@ -100,7 +103,7 @@ app.post('/api/start-login', async (req, res) => {
     try {
         // Execute within session pool to enforce concurrency limit
         const result = await sessionPool.run(async () => {
-            console.log(`🌐 Starting login process for: ${regno}`);
+            // console.log(`🌐 Starting login process for: ${regno}`);
 
             // Launch browser
             browser = await chromium.launch({ headless: true });
@@ -110,11 +113,11 @@ app.post('/api/start-login', async (req, res) => {
             page = await context.newPage();
 
             // Navigate to login page
-            console.log('📄 Loading login page...');
+            // console.log('📄 Loading login page...');
             await page.goto('https://ums.lpu.in/lpuums/', { waitUntil: 'networkidle' });
 
             // Fill registration number
-            console.log('📝 Entering registration number...');
+            // console.log('📝 Entering registration number...');
             const regnoField = page.locator('input[name="txtU"]');
             await regnoField.click();
             await page.waitForTimeout(300);
@@ -123,7 +126,7 @@ app.post('/api/start-login', async (req, res) => {
             await regnoField.blur();
 
             // Wait for captcha to load
-            console.log('🖼️  Waiting for captcha...');
+            // console.log('🖼️  Waiting for captcha...');
             await page.waitForSelector('#c_loginnew_examplecaptcha_CaptchaImage', { timeout: 10000 });
 
             // Screenshot captcha and convert to base64
@@ -143,7 +146,7 @@ app.post('/api/start-login', async (req, res) => {
                 timestamp: Date.now()
             });
 
-            console.log(`✅ Session created: ${sessionId}`);
+            // console.log(`✅ Session created: ${sessionId}`);
 
             return {
                 success: true,
@@ -195,18 +198,18 @@ app.post('/api/complete-login', async (req, res) => {
     const { browser, page, password } = session;
 
     try {
-        console.log(`🔐 Completing login for session: ${sessionId}`);
+        // console.log(`🔐 Completing login for session: ${sessionId}`);
 
         // Fill captcha
-        console.log('✍️  Filling captcha...');
-        const captchaField = page.locator('input[name="CaptchaCodeTextBox"]');
+        // console.log('✍️  Filling captcha...');
+        const captchaField = page.locator('input[name="CaptchaCodeTextBox1"]');
         await captchaField.click();
         await page.waitForTimeout(200);
         await captchaField.type(captcha, { delay: 120 });
         await page.waitForTimeout(400);
 
         // Fill password
-        console.log('🔑 Filling password...');
+        // console.log('🔑 Filling password...');
         const pwdField = page.locator('input[type="password"]');
         await pwdField.click();
         await page.waitForTimeout(200);
@@ -220,7 +223,7 @@ app.post('/api/complete-login', async (req, res) => {
         await page.waitForTimeout(300);
 
         // Click login button
-        console.log('🔘 Clicking login...');
+        // console.log('🔘 Clicking login...');
         const loginButton = page.locator('input[type="submit"][value="Login"]');
         await loginButton.click();
         await page.waitForTimeout(300);
@@ -238,13 +241,13 @@ app.post('/api/complete-login', async (req, res) => {
         }
 
         // Extract cookies
-        console.log('🍪 Extracting cookies...');
+        // console.log('🍪 Extracting cookies...');
         const context = page.context();
         const cookies = await context.cookies();
         const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
 
         // Close browser and cleanup session
-        console.log('✅ Closing browser and cleaning up session...');
+        // console.log('✅ Closing browser and cleaning up session...');
         await browser.close();
         sessions.delete(sessionId);
 
@@ -282,7 +285,7 @@ app.post('/api/student-info', async (req, res) => {
     }
 
     try {
-        console.log('📊 Fetching student information...');
+        // console.log('📊 Fetching student information...');
 
         // Create axios client with cookies
         const axiosClient = createAxiosClient(cookies);
@@ -309,7 +312,7 @@ app.post('/api/student-info', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching student info:', error.message);
+        // console.error('❌ Error fetching student info:', error.message);
 
         return res.status(500).json({
             success: false,
@@ -333,7 +336,7 @@ app.post('/api/attendance', async (req, res) => {
     }
 
     try {
-        console.log('📊 Fetching attendance data...');
+        // console.log('📊 Fetching attendance data...');
 
         // Create axios client with cookies
         const axiosClient = createAxiosClient(cookies);
@@ -353,7 +356,7 @@ app.post('/api/attendance', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching attendance:', error.message);
+        // console.error('❌ Error fetching attendance:', error.message);
 
         return res.status(500).json({
             success: false,
@@ -377,7 +380,7 @@ app.post('/api/attendance-details', async (req, res) => {
     }
 
     try {
-        console.log('📊 Fetching detailed attendance data...');
+        // console.log('📊 Fetching detailed attendance data...');
 
         // Create axios client with cookies
         const axiosClient = createAxiosClient(cookies);
@@ -402,13 +405,13 @@ app.post('/api/attendance-details', async (req, res) => {
             return {
                 ...course,
                 // UMS-official percentage string (e.g. "82.35%") from summary; null if not matched
-                summaryPercent: summaryRow ? summaryRow.percent  : null,
+                summaryPercent: summaryRow ? summaryRow.percent : null,
                 // Duty leave / OD count from summary
-                od:             summaryRow ? summaryRow.od       : null,
+                od: summaryRow ? summaryRow.od : null,
                 // Last attendance date from summary
-                lastDate:       summaryRow ? summaryRow.lastDate : null,
+                lastDate: summaryRow ? summaryRow.lastDate : null,
                 // Full course title from summary
-                courseTitle:    summaryRow ? summaryRow.course   : null,
+                courseTitle: summaryRow ? summaryRow.course : null,
             };
         });
 
@@ -418,7 +421,7 @@ app.post('/api/attendance-details', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching attendance details:', error.message);
+        // console.error('❌ Error fetching attendance details:', error.message);
 
         return res.status(500).json({
             success: false,
@@ -448,7 +451,30 @@ app.get('/api/health', (req, res) => {
 // Start server
 app.listen(PORT, () => {
     console.log(`🚀 UMS Backend Server running on http://localhost:${PORT}`);
-    console.log(`📡 Accepting requests from React frontend`);
+    // console.log(`📡 Accepting requests from React frontend`);
+});
+
+/**
+ * POST /api/result
+ * Fetch student result (subjects, credits, grades, CGPA) grouped by semester
+ */
+app.post('/api/result', async (req, res) => {
+    const { cookies } = req.body;
+
+    if (!cookies) {
+        return res.status(400).json({ success: false, error: 'Cookies are required' });
+    }
+
+    try {
+        // console.log('📋 Fetching student result...');
+        const axiosClient = createAxiosClient(cookies);
+        const resultData = await fetchStudentResult(axiosClient);
+
+        return res.json({ success: true, data: resultData });
+    } catch (error) {
+        // console.error('❌ Error fetching result:', error.message);
+        return res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 /**
@@ -466,7 +492,7 @@ app.post('/api/marks', async (req, res) => {
     }
 
     try {
-        console.log('📊 Fetching term-wise marks...');
+        // console.log('📊 Fetching term-wise marks...');
 
         const axiosClient = createAxiosClient(cookies);
         const marksData = await fetchTermWiseMarks(axiosClient);
@@ -477,7 +503,7 @@ app.post('/api/marks', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching marks:', error.message);
+        // console.error('❌ Error fetching marks:', error.message);
 
         return res.status(500).json({
             success: false,
@@ -501,7 +527,7 @@ app.post('/api/timetable', async (req, res) => {
     }
 
     try {
-        console.log('📅 Fetching student timetable...');
+        // console.log('📅 Fetching student timetable...');
 
         const axiosClient = createAxiosClient(cookies);
 
@@ -517,7 +543,7 @@ app.post('/api/timetable', async (req, res) => {
 
         // Get termId from the first course
         const termId = coursesData[0].term;
-        console.log(`📋 Using Term ID: ${termId}`);
+        // console.log(`📋 Using Term ID: ${termId}`);
 
         // Fetch timetable with the termId
         const timetableData = await fetchTimeTable(axiosClient, termId);
@@ -528,7 +554,7 @@ app.post('/api/timetable', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching timetable:', error.message);
+        // console.error('❌ Error fetching timetable:', error.message);
 
         return res.status(500).json({
             success: false,
@@ -552,7 +578,7 @@ app.post('/api/courses', async (req, res) => {
     }
 
     try {
-        console.log('📚 Fetching student courses...');
+        // console.log('📚 Fetching student courses...');
 
         const axiosClient = createAxiosClient(cookies);
         const coursesData = await fetchStudentCourses(axiosClient);
@@ -563,7 +589,7 @@ app.post('/api/courses', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching courses:', error.message);
+        // console.error('❌ Error fetching courses:', error.message);
 
         return res.status(500).json({
             success: false,
@@ -587,16 +613,16 @@ app.post('/api/seating-plan', async (req, res) => {
     }
 
     try {
-        console.log('🪑 Fetching student seating plan...');
+        // console.log('🪑 Fetching student seating plan...');
 
         const axiosClient = createAxiosClient(cookies);
         const seatingPlanData = await fetchStudentSeatingPlan(axiosClient);
 
-        console.log(`✅ Seating plan fetched successfully. Items: ${seatingPlanData?.length || 0}`);
-        console.log('📤 Sending response:', JSON.stringify({
-            success: true,
-            data: seatingPlanData
-        }).substring(0, 300));
+        // console.log(`✅ Seating plan fetched successfully. Items: ${seatingPlanData?.length || 0}`);
+        // console.log('📤 Sending response:', JSON.stringify({
+        //     success: true,
+        //     data: seatingPlanData
+        // }).substring(0, 300));
 
         return res.json({
             success: true,
@@ -604,8 +630,8 @@ app.post('/api/seating-plan', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching seating plan:', error.message);
-        console.error('Stack:', error.stack);
+        // console.error('❌ Error fetching seating plan:', error.message);
+        // console.error('Stack:', error.stack);
 
         return res.status(500).json({
             success: false,
@@ -626,13 +652,13 @@ app.post('/api/hostel-info', async (req, res) => {
     }
 
     try {
-        console.log('🏠 Fetching hostel info...');
+        // console.log('🏠 Fetching hostel info...');
         const axiosClient = createAxiosClient(cookies);
         const hostelData = await fetchHostelInfo(axiosClient);
 
         return res.json({ success: true, data: hostelData });
     } catch (error) {
-        console.error('❌ Error fetching hostel info:', error.message);
+        // console.error('❌ Error fetching hostel info:', error.message);
         return res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -646,7 +672,7 @@ app.get('/api/mutual-shift', async (req, res) => {
         const posts = await MutualShiftPost.find({ isActive: true }).sort({ createdAt: -1 });
         return res.json({ success: true, data: posts });
     } catch (error) {
-        console.error('❌ Error fetching mutual shift posts:', error.message);
+        // console.error('❌ Error fetching mutual shift posts:', error.message);
         return res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -660,7 +686,7 @@ app.get('/api/mutual-shift/:vid', async (req, res) => {
         const post = await MutualShiftPost.findOne({ vid: req.params.vid });
         return res.json({ success: true, data: post || null });
     } catch (error) {
-        console.error('❌ Error fetching post:', error.message);
+        // console.error('❌ Error fetching post:', error.message);
         return res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -670,21 +696,21 @@ app.get('/api/mutual-shift/:vid', async (req, res) => {
  * Create a new mutual shift post
  */
 app.post('/api/mutual-shift', async (req, res) => {
-    const { vid, name, currentHostel, currentRoom, desiredHostel, desiredFloor, desiredRoom } = req.body;
+    const { vid, name, currentHostel, currentRoom, desiredHostel, desiredRoom } = req.body;
 
-    if (!vid || !name || !currentHostel || !currentRoom || !desiredHostel || !desiredFloor) {
+    if (!vid || !name || !currentHostel || !currentRoom || !desiredHostel) {
         return res.status(400).json({ success: false, error: 'Missing required fields' });
     }
 
     try {
-        const post = new MutualShiftPost({ vid, name, currentHostel, currentRoom, desiredHostel, desiredFloor, desiredRoom: desiredRoom || '' });
+        const post = new MutualShiftPost({ vid, name, currentHostel, currentRoom, desiredHostel, desiredFloor: '', desiredRoom: desiredRoom || '' });
         await post.save();
         return res.status(201).json({ success: true, data: post });
     } catch (error) {
         if (error.code === 11000) {
             return res.status(409).json({ success: false, error: 'You already have an active post. Delete it first or use edit.' });
         }
-        console.error('❌ Error creating post:', error.message);
+        // console.error('❌ Error creating post:', error.message);
         return res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -694,12 +720,12 @@ app.post('/api/mutual-shift', async (req, res) => {
  * Update an existing mutual shift post
  */
 app.put('/api/mutual-shift/:vid', async (req, res) => {
-    const { desiredHostel, desiredFloor, desiredRoom } = req.body;
+    const { desiredHostel, desiredRoom } = req.body;
 
     try {
         const post = await MutualShiftPost.findOneAndUpdate(
             { vid: req.params.vid },
-            { desiredHostel, desiredFloor, desiredRoom: desiredRoom || '' },
+            { desiredHostel, desiredRoom: desiredRoom || '' },
             { new: true }
         );
 
@@ -709,7 +735,7 @@ app.put('/api/mutual-shift/:vid', async (req, res) => {
 
         return res.json({ success: true, data: post });
     } catch (error) {
-        console.error('❌ Error updating post:', error.message);
+        // console.error('❌ Error updating post:', error.message);
         return res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -728,7 +754,7 @@ app.delete('/api/mutual-shift/:vid', async (req, res) => {
 
         return res.json({ success: true, message: 'Post deleted successfully' });
     } catch (error) {
-        console.error('❌ Error deleting post:', error.message);
+        // console.error('❌ Error deleting post:', error.message);
         return res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -748,7 +774,7 @@ app.post('/api/ranking', async (req, res) => {
     }
 
     try {
-        console.log(`🏆 Fetching ranking for: ${registrationNumber}`);
+        // console.log(`🏆 Fetching ranking for: ${registrationNumber}`);
 
         const response = await axios.post(
             'https://lpu-student-ranking.vercel.app/get-student-info',
@@ -761,7 +787,7 @@ app.post('/api/ranking', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching ranking:', error.message);
+        // console.error('❌ Error fetching ranking:', error.message);
 
         return res.status(error.response?.status || 500).json({
             success: false,
@@ -769,3 +795,17 @@ app.post('/api/ranking', async (req, res) => {
         });
     }
 });
+
+// ── AI Buddy ──────────────────────────────────────────────────────────────
+app.post('/api/ai-buddy', async (req, res) => {
+    const { message, data, history } = req.body;
+    if (!message) return res.status(400).json({ success: false, error: 'message is required' });
+    try {
+        const reply = await getAIBuddyResponse(message, data || {}, history || []);
+        res.json({ success: true, reply });
+    } catch (err) {
+        // console.error('❌ AI Buddy error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
