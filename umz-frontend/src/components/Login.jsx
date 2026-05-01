@@ -9,7 +9,7 @@ import loginImg3 from '../assets/login3.jpg'
 
 const Login = () => {
     const navigate = useNavigate();
-    const [theme, setTheme] = useState('dark');
+    const [theme, setTheme] = useState('light');
     const [currentSlide, setCurrentSlide] = useState(0);
     const [showPassword, setShowPassword] = useState(false);
 
@@ -174,7 +174,7 @@ const Login = () => {
                                     <div className={`w-full h-full bg-gradient-to-br ${slide.color} flex items-center justify-center`}>
                                         <div className="text-center space-y-4 p-8">
                                             <div className="w-120 h-120 mx-auto rounded-2xl bg-card/10 backdrop-blur-sm border border-border/20 flex items-center justify-center">
-                                                <img src={slide.image} alt="login" className='w-full h-full object-cover' />
+                                                <img src={slide.image} alt="login" className='w-full h-full object-cover rounded-2xl' />
                                             </div>
                                         </div>
                                     </div>

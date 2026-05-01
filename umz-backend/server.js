@@ -202,7 +202,7 @@ app.post('/api/complete-login', async (req, res) => {
 
         // Fill captcha
         // console.log('✍️  Filling captcha...');
-        const captchaField = page.locator('input[name="CaptchaCodeTextBox1"]');
+        const captchaField = page.locator('input[name="CaptchaCodeTextBox"]');
         await captchaField.click();
         await page.waitForTimeout(200);
         await captchaField.type(captcha, { delay: 120 });
