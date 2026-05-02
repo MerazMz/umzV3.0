@@ -5,12 +5,14 @@ import { Info } from 'lucide-react';
 import Sidebar from './Sidebar';
 import MessagesCard from './MessagesCard';
 import SeatingPlanCardCompact from './SeatingPlanCardCompact';
-import { getStudentInfo, getSeatingPlan } from '../services/api';
+import HeadsCard from './HeadsCard';
+import { getStudentInfo, getSeatingPlan, getHeads } from '../services/api';
 
 const Dashboard = () => {
     const navigate = useNavigate();
     const [studentInfo, setStudentInfo] = useState(null);
     const [seatingPlan, setSeatingPlan] = useState(null);
+    const [heads, setHeads] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [hideCGPA, setHideCGPA] = useState(false);
@@ -52,6 +54,7 @@ const Dashboard = () => {
                     const cookies = localStorage.getItem('umz_cookies');
                     if (cookies) {
                         fetchSeatingPlanData(cookies);
+                        fetchHeadsData(cookies);
                     }
 
                     return; // Use cache, don't fetch student info again
@@ -84,8 +87,9 @@ const Dashboard = () => {
                 // Store student info in localStorage for caching
                 localStorage.setItem('umz_student_info', JSON.stringify(result.data));
 
-                // Fetch seating plan
+                // Fetch seating plan and heads
                 fetchSeatingPlanData(cookies);
+                fetchHeadsData(cookies);
 
                 setError('');
             } catch (err) {
@@ -112,6 +116,18 @@ const Dashboard = () => {
                 console.error('Full seating error:', seatingError);
                 // Don't fail the entire dashboard if seating plan fails
                 setSeatingPlan([]);
+            }
+        };
+
+        // Helper function to fetch heads directory
+        const fetchHeadsData = async (cookies) => {
+            try {
+                console.log('👥 Fetching heads directory...');
+                const headsResult = await getHeads(cookies);
+                setHeads(headsResult.data);
+            } catch (error) {
+                console.warn('⚠️ Could not fetch heads directory:', error.message);
+                setHeads([]);
             }
         };
 
@@ -401,8 +417,10 @@ const Dashboard = () => {
                         <MessagesCard messages={studentInfo.Messages || []} />
                     )}
 
-
-
+                    {/* Heads / Directory Card */}
+                    {heads && heads.length > 0 && (
+                        <HeadsCard heads={heads} />
+                    )}
 
                     {/* Parent Information Section - Moved to Separate Card */}
                     {

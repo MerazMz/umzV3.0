@@ -667,6 +667,28 @@ app.post('/api/hostel-info', async (req, res) => {
 });
 
 /**
+ * POST /api/heads
+ * Fetch university heads and contacts
+ */
+app.post('/api/heads', async (req, res) => {
+    const { cookies } = req.body;
+
+    if (!cookies) {
+        return res.status(400).json({ success: false, error: 'Cookies are required' });
+    }
+
+    try {
+        const axiosClient = createAxiosClient(cookies);
+        const { fetchHeads } = await import('./src/modules/GetHeads.js');
+        const headsData = await fetchHeads(axiosClient);
+
+        return res.json({ success: true, data: headsData });
+    } catch (error) {
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
  * GET /api/mutual-shift
  * Get all active mutual shift posts
  */
