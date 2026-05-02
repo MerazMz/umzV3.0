@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, Download, Copy, CheckCircle, ExternalLink, RefreshCw } from 'lucide-react';
+import { Calendar, Clock, Download, Copy, CheckCircle, ExternalLink, RefreshCw, Info, X } from 'lucide-react';
 import Sidebar from './Sidebar';
 import { getTimeTable, syncCalendar } from '../services/api';
 import { generateTimetablePDF } from '../utils/generateTimetablePDF';
@@ -16,6 +16,7 @@ const TimeTable = () => {
     const [syncUrl, setSyncUrl] = useState(localStorage.getItem('umz_calendar_sync_url') || '');
     const [copied, setCopied] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [showInfo, setShowInfo] = useState(false);
 
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -300,6 +301,13 @@ const TimeTable = () => {
                                         ) : (
                                             <CheckCircle className="h-4 w-4 text-green-500" />
                                         )}
+                                        <button 
+                                            onClick={() => setShowInfo(!showInfo)}
+                                            className={`ml-2 p-1 rounded-full transition-all ${showInfo ? 'bg-blue-500 text-white shadow-sm' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200'}`}
+                                            title="How to use this?"
+                                        >
+                                            <Info className="h-4 w-4" />
+                                        </button>
                                     </div>
                                     <p className="text-sm text-gray-600 dark:text-gray-400">
                                         Subscribe to this link in Google Calendar/iCal for automatic updates.
@@ -327,6 +335,84 @@ const TimeTable = () => {
                                 </div>
                             </div>
                             
+                            {/* Detailed Info Section */}
+                            {showInfo && (
+                                <div className="mt-6 p-5 bg-white dark:bg-gray-800/80 rounded-2xl border border-blue-100 dark:border-blue-900/30 shadow-xl animate-in fade-in slide-in-from-top-2 duration-300 backdrop-blur-sm">
+                                    <div className="flex justify-between items-center mb-5 pb-3 border-b border-gray-100 dark:border-gray-700">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                                                <Info className="h-5 w-5 text-blue-500" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-base font-bold text-gray-900 dark:text-white">Calendar Integration Guide</h4>
+                                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Sync or Import your timetable</p>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => setShowInfo(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-400">
+                                            <X className="h-5 w-5" />
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                        {/* Option 1: Live Sync */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-500 text-white text-[10px] font-bold">1</span>
+                                                <h5 className="font-bold text-gray-900 dark:text-white text-sm">Live Subscription (Recommended)</h5>
+                                            </div>
+                                            <p className="text-xs text-gray-500 leading-relaxed italic">Changes in UMZ will automatically update in your calendar.</p>
+                                            
+                                            <div className="space-y-3">
+                                                <div className="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl space-y-2">
+                                                    <p className="font-bold text-blue-600 dark:text-blue-400 text-[10px] uppercase">Google Calendar</p>
+                                                    <ul className="text-[11px] text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
+                                                        <li>Copy the link shown above</li>
+                                                        <li>Open <a href="https://calendar.google.com" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">Google Calendar</a></li>
+                                                        <li>Click "+" next to "Other calendars"</li>
+                                                        <li>Select "From URL" and paste the link</li>
+                                                    </ul>
+                                                </div>
+                                                <div className="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl space-y-2">
+                                                    <p className="font-bold text-indigo-600 dark:text-indigo-400 text-[10px] uppercase">iPhone / Apple Calendar</p>
+                                                    <ul className="text-[11px] text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
+                                                        <li>Copy the link on your iPhone</li>
+                                                        <li>Settings {'>'} Calendar {'>'} Accounts</li>
+                                                        <li>Add Account {'>'} Other {'>'} Subscribed Calendar</li>
+                                                        <li>Paste the link and Save</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Option 2: Manual Import */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-gray-500 text-white text-[10px] font-bold">2</span>
+                                                <h5 className="font-bold text-gray-900 dark:text-white text-sm">Manual File Import</h5>
+                                            </div>
+                                            <p className="text-xs text-gray-500 leading-relaxed italic">One-time snapshot. Will not update automatically.</p>
+
+                                            <div className="space-y-3">
+                                                <div className="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl space-y-2">
+                                                    <p className="font-bold text-gray-700 dark:text-gray-300 text-[10px] uppercase">How to Import File</p>
+                                                    <ol className="text-[11px] text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
+                                                        <li>Click the "Sync Calendar" button at the top right</li>
+                                                        <li>Download the <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">.ics</code> file</li>
+                                                        <li>In Google Calendar: Go to Settings {'>'} Import & Export</li>
+                                                        <li>Upload the file and click "Import"</li>
+                                                    </ol>
+                                                </div>
+                                                <div className="p-3 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
+                                                    <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-relaxed">
+                                                        <strong>Note:</strong> If your timetable changes, you will need to delete the old calendar entries and import the new file again. This is why <strong>Method 1</strong> is preferred.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-[11px] text-gray-500 dark:text-gray-400">
                                 <div className="flex items-center gap-1">
                                     <span className="w-1 h-1 rounded-full bg-gray-400"></span>

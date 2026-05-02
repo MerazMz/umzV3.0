@@ -66,7 +66,7 @@ const TPGACalculator = ({ semesterData = [], resultData = null }) => {
                 courseCode: sub.code || '',
                 courseName: sub.name || sub.code || 'Subject',
                 grade: sub.grade || '',
-                credit: sub.credit != null ? sub.credit.toString() : '4',
+                credit: sub.credit != null ? sub.credit.toString() : '',
             })));
             setResult(null);
             return;
@@ -84,7 +84,7 @@ const TPGACalculator = ({ semesterData = [], resultData = null }) => {
                         courseCode: c.courseCode || '',
                         courseName: c.courseName || 'Subject',
                         grade: '',
-                        credit: '4', // Default to 4 for new terms
+                        credit: '', // Default to empty for new terms
                     })));
                     setResult(null);
                     return;
@@ -102,7 +102,7 @@ const TPGACalculator = ({ semesterData = [], resultData = null }) => {
                     courseCode: code?.trim() || '',
                     courseName: nameParts.join('::').trim() || code?.trim() || 'Subject',
                     grade: subject.grade || '',
-                    credit: subject.credit?.toString() || '4',
+                    credit: subject.credit?.toString() || '',
                 };
             }));
             setResult(null);
@@ -174,7 +174,6 @@ const TPGACalculator = ({ semesterData = [], resultData = null }) => {
         const options = new Map();
         const allTermIds = new Set();
 
-        // 1. Collect all unique term IDs from all sources
         (resultData?.semesters || []).forEach(s => allTermIds.add(String(s.termId)));
         (semesterData || []).forEach(s => {
             if (String(s.term).length > 3) allTermIds.add(String(s.term));
@@ -187,9 +186,15 @@ const TPGACalculator = ({ semesterData = [], resultData = null }) => {
                 });
             }
         } catch (e) { /* ignore */ }
-
-        // 2. Sort term IDs chronologically
-        const sortedTermIds = Array.from(allTermIds).sort((a, b) => a.localeCompare(b));
+        // 2. Sort term IDs chronologically based on the last 5 digits (Year + Term)
+        const getSortValue = (id) => {
+            const str = String(id);
+            if (/^\d+$/.test(str) && str.length >= 5) {
+                return parseInt(str.slice(-5), 10);
+            }
+            return parseInt(str, 10) || 0;
+        };
+        const sortedTermIds = Array.from(allTermIds).sort((a, b) => getSortValue(a) - getSortValue(b));
 
         // 3. Create a map of Term ID -> Semester Number (Roman)
         const termToRoman = {};
@@ -198,6 +203,8 @@ const TPGACalculator = ({ semesterData = [], resultData = null }) => {
         });
 
         // 4. Build options
+        const maxTermId = sortedTermIds[sortedTermIds.length - 1];
+
         sortedTermIds.forEach(id => {
             let label = `Semester ${termToRoman[id]} (${id})`;
             
@@ -219,7 +226,7 @@ const TPGACalculator = ({ semesterData = [], resultData = null }) => {
         });
 
         // Return sorted descending (latest first)
-        return Array.from(options.values()).sort((a, b) => b.value.localeCompare(a.value));
+        return Array.from(options.values()).sort((a, b) => getSortValue(b.value) - getSortValue(a.value));
     };
 
     const semesterOptions = getSemesterOptions();

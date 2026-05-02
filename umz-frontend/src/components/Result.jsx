@@ -191,31 +191,61 @@ const Result = () => {
 
                     {/* Semester Accordion */}
                     <div className="space-y-4">
-                        {semesters.map((sem) => {
-                            const isOpen = expandedTerms[sem.termId];
-                            const totalCredits = sem.subjects.reduce((a, s) => a + (s.credit || 0), 0);
+                        {(() => {
+                            const getSortValue = (id) => {
+                                const str = String(id);
+                                if (/^\d+$/.test(str) && str.length >= 5) {
+                                    return parseInt(str.slice(-5), 10);
+                                }
+                                return parseInt(str, 10) || 0;
+                            };
 
-                            return (
-                                <div
-                                    key={sem.termId}
-                                    className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
-                                >
-                                    {/* Semester Header */}
-                                    <button
-                                        onClick={() => toggleTerm(sem.termId)}
-                                        className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
+                            const sortedSems = [...semesters].sort((a, b) => getSortValue(b.termId) - getSortValue(a.termId));
+                            const maxTermId = sortedSems.length > 0 ? sortedSems[0].termId : null;
+
+                            const romanize = (num) => {
+                                const lookup = { X: 10, IX: 9, V: 5, IV: 4, I: 1 };
+                                let roman = '', i;
+                                for (i in lookup) {
+                                    while (num >= lookup[i]) {
+                                        roman += i;
+                                        num -= lookup[i];
+                                    }
+                                }
+                                return roman;
+                            };
+
+                            return sortedSems.map((sem, index) => {
+                                const isOpen = expandedTerms[sem.termId];
+                                const totalCredits = sem.subjects.reduce((a, s) => a + (s.credit || 0), 0);
+                                const semNumber = romanize(sortedSems.length - index);
+
+                                return (
+                                    <div
+                                        key={sem.termId}
+                                        className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
                                     >
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center">
-                                                <BookOpen className="w-5 h-5 text-white" />
+                                        {/* Semester Header */}
+                                        <button
+                                            onClick={() => toggleTerm(sem.termId)}
+                                            className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center">
+                                                    <BookOpen className="w-5 h-5 text-white" />
+                                                </div>
+                                                <div className="text-left">
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-semibold text-gray-900">Semester {semNumber} ({sem.termId})</p>
+                                                        {String(sem.termId) === String(maxTermId) && (
+                                                            <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[10px] font-bold rounded border border-blue-100 uppercase tracking-tighter">Current</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs text-gray-500">
+                                                        {sem.subjects.length} subjects · {totalCredits.toFixed(1)} credits
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <div className="text-left">
-                                                <p className="font-semibold text-gray-900">Term {sem.termId}</p>
-                                                <p className="text-xs text-gray-500">
-                                                    {sem.subjects.length} subjects · {totalCredits.toFixed(1)} credits
-                                                </p>
-                                            </div>
-                                        </div>
                                         <div className="flex items-center gap-3">
                                             {sem.tgpa && (
                                                 <span className="px-3 py-1 bg-gray-100 text-gray-900 rounded-lg text-sm font-bold">
@@ -269,7 +299,7 @@ const Result = () => {
                                     )}
                                 </div>
                             );
-                        })}
+                        })()}
                     </div>
 
                     {/* RPL Grades Section */}
