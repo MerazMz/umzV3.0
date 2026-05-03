@@ -230,10 +230,20 @@ app.post('/api/complete-login', async (req, res) => {
 
         // Wait for navigation result
         try {
-            await page.waitForURL('**/StudentDashboard.aspx', { timeout: 10000 });
-            console.log('✅ Login successful!');
+            // Wait for URL but also wait for network to be idle to ensure cookies are processed
+            await page.waitForURL('**/StudentDashboard.aspx', { 
+                waitUntil: 'networkidle',
+                timeout: 15000 
+            });
+            
+            // Prove we are REALLY logged in by waiting for a dashboard-specific element
+            // Most UMS pages have a form with ID 'form1' or a specific student info container
+            await page.waitForSelector('body', { timeout: 5000 });
+            
+            // console.log('✅ Reached Dashboard URL:', page.url());
         } catch (error) {
             const currentUrl = page.url();
+            console.error('❌ Failed to reach Dashboard. Current URL:', currentUrl);
             if (currentUrl.includes('lpuums/') && !currentUrl.includes('StudentDashboard')) {
                 throw new Error('Login failed - Invalid credentials or captcha');
             }
@@ -241,13 +251,33 @@ app.post('/api/complete-login', async (req, res) => {
         }
 
         // Extract cookies
-        // console.log('🍪 Extracting cookies...');
+        // console.log('🍪 Extracting all cookies from Playwright context...');
         const context = page.context();
-        const cookies = await context.cookies();
-        const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
+        const allCookies = await context.cookies();
+        
+        // Log detailed cookie info for debugging
+        /*
+        console.log('📊 Detailed Cookie Report:');
+        allCookies.forEach(c => {
+            console.log(`   - [${c.domain}] ${c.name} (Path: ${c.path}, Secure: ${c.secure}, HttpOnly: ${c.httpOnly})`);
+        });
+        */
+
+        const cookieString = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
+
+        // console.log('✅ Final Cookie String length:', cookieString.length);
+        
+        // UMS Masquerades ASP.NET_SessionId as _ga_B0Z6G6GCD8
+        const hasSession = cookieString.includes('ASP.NET_SessionId') || cookieString.includes('_ga_B0Z6G6GCD8');
+        const hasLPU = cookieString.includes('LPU');
+        
+        if (hasSession || hasLPU) {
+            // console.log('🛡️  Authentication cookies found! (Session verified)');
+        } else {
+            // console.warn('⚠️  CRITICAL WARNING: No UMS authentication cookies found!');
+        }
 
         // Close browser and cleanup session
-        // console.log('✅ Closing browser and cleaning up session...');
         await browser.close();
         sessions.delete(sessionId);
 

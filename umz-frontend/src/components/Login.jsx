@@ -112,6 +112,7 @@ const Login = () => {
             if (result.success) {
                 // Store cookies if needed
                 if (result.cookies) {
+                    // console.log('🍪 Received cookies from backend:', result.cookies);
                     localStorage.setItem('umz_cookies', result.cookies);
                 }
 

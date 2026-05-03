@@ -7,8 +7,6 @@ import fs from 'fs';
  * @returns {Promise<Object>} - Filtered student information
  */
 export async function fetchStudentBasicInformation(client) {
-    // console.log('📊 Fetching Student Basic Information...');
-
     const response = await client.post(
         'https://ums.lpu.in/lpuums/StudentDashboard.aspx/GetStudentBasicInformation',
         {},
@@ -20,8 +18,8 @@ export async function fetchStudentBasicInformation(client) {
     );
 
     const data = response.data.d;
+    if (!data || data.length === 0) return {};
 
-    // The response is an array with one object
     const studentInfo = data[0];
 
     // Filter out null values
@@ -31,6 +29,9 @@ export async function fetchStudentBasicInformation(client) {
             filteredInfo[key] = value;
         }
     }
+    
+    return filteredInfo;
+}
 
     // Save student picture if available
     if (filteredInfo.StudentPicture) {
