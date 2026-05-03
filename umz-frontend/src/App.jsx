@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Attendance from './components/Attendance';
@@ -10,11 +10,32 @@ import Ranking from './components/Ranking';
 import MutualShift from './components/MutualShift';
 import HostelInfo from './components/HostelInfo';
 import AiBuddy from './components/AiBuddy';
+import Profile from './components/Profile';
+import MobileBacklogs from './components/MobileBacklogs';
+import MobileBottomNav from './components/MobileBottomNav';
 import './App.css';
 
-function App() {
+function AppContent() {
+  const location = useLocation();
+  const isLoginPage = location.pathname === '/';
+  
+  // Get student info for the nav
+  const studentInfoStr = localStorage.getItem('umz_student_info');
+  let studentPhoto = '';
+  let studentName = '';
+  
+  if (studentInfoStr) {
+    try {
+      const studentInfo = JSON.parse(studentInfoStr);
+      studentPhoto = studentInfo?.StudentPicture ? `data:image/png;base64,${studentInfo.StudentPicture}` : '';
+      studentName = studentInfo?.StudentName || '';
+    } catch (e) {
+      console.error('Error parsing student info:', e);
+    }
+  }
+
   return (
-    <BrowserRouter>
+    <>
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
@@ -23,11 +44,29 @@ function App() {
         <Route path="/cgpa" element={<CGPA />} />
         <Route path="/time-table" element={<TimeTable />} />
         <Route path="/courses" element={<Courses />} />
+        <Route path="/grades" element={<Courses />} />
         <Route path="/ranking" element={<Ranking />} />
         <Route path="/mutual-shift" element={<MutualShift />} />
         <Route path="/hostel-info" element={<HostelInfo />} />
         <Route path="/ai-buddy" element={<AiBuddy />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/backlogs" element={<MobileBacklogs />} />
       </Routes>
+      {!isLoginPage && (
+        <MobileBottomNav 
+          messageCount={0} 
+          studentPhoto={studentPhoto} 
+          studentName={studentName} 
+        />
+      )}
+    </>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
     </BrowserRouter>
   );
 }

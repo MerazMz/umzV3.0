@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Sparkles, Bot, User, Trash2, RefreshCw, ChevronDown } from 'lucide-react';
+import { 
+    Send, Sparkles, Bot, User, Trash2, RefreshCw, ChevronDown, 
+    BarChart2, GraduationCap, AlertTriangle, TrendingUp, Award, FileText,
+    ChevronLeft
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { sendAIBuddyMessage } from '../services/api';
 
@@ -47,12 +52,12 @@ function renderInline(text) {
 
 // ── Quick prompts ─────────────────────────────────────────────────────────────
 const QUICK_PROMPTS = [
-    { icon: '📊', label: 'Attendance summary',  text: 'Give me a summary of my attendance for all subjects.' },
-    { icon: '🎓', label: 'CGPA overview',        text: 'What is my current CGPA and how has it changed term by term?' },
-    { icon: '⚠️', label: 'Low attendance',       text: 'Which subjects have attendance below 75%? How many classes do I need?' },
-    { icon: '📈', label: 'Improve CGPA',         text: 'Based on my grades, what should I focus on to improve my CGPA?' },
-    { icon: '🏆', label: 'Best subjects',        text: 'In which subjects have I performed the best?' },
-    { icon: '📋', label: 'Full report',          text: 'Give me a complete academic performance report with suggestions.' },
+    { icon: BarChart2, label: 'Attendance summary',  text: 'Give me a summary of my attendance for all subjects.' },
+    { icon: GraduationCap, label: 'CGPA overview',        text: 'What is my current CGPA and how has it changed term by term?' },
+    { icon: AlertTriangle, label: 'Low attendance',       text: 'Which subjects have attendance below 75%? How many classes do I need?' },
+    { icon: TrendingUp, label: 'Improve CGPA',         text: 'Based on my grades, what should I focus on to improve my CGPA?' },
+    { icon: Award, label: 'Best subjects',        text: 'In which subjects have I performed the best?' },
+    { icon: FileText, label: 'Full report',          text: 'Give me a complete academic performance report with suggestions.' },
 ];
 
 // ── Gather UMS data from localStorage (lean — no per-class records) ───────────
@@ -71,6 +76,7 @@ function gatherUMSData() {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function AiBuddy() {
+    const navigate = useNavigate();
     const [messages, setMessages] = useState(() => {
         try { return JSON.parse(localStorage.getItem('umz_ai_buddy_history')) || []; } catch { return []; }
     });
@@ -139,30 +145,34 @@ export default function AiBuddy() {
     const isEmpty = messages.length === 0;
 
     return (
-        <div className="flex h-screen bg-gray-50 overflow-hidden">
+        <div className="flex h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
             <Sidebar />
 
             <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
                 {/* ── Header ── */}
-                <div className="flex-shrink-0 flex items-center justify-between px-6 lg:px-10 py-5 bg-gray-50">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">AI Buddy</h1>
-                        <p className="text-sm text-gray-500 mt-0.5">Your personal academic assistant</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        {/* Status pill */}
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-xl shadow-sm">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <span className="text-xs font-medium text-gray-500">Gemini AI</span>
-                        </div>
-                        {!isEmpty && (
+                <div className="flex-shrink-0 sticky top-0 z-30 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800">
+                    <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
+                        <button 
+                            onClick={() => navigate('/dashboard')}
+                            className="p-2 -ml-2 text-gray-900 dark:text-white active:scale-90 transition-transform"
+                        >
+                            <ChevronLeft className="w-6 h-6" />
+                        </button>
+                        <h1 className="text-lg font-bold text-gray-900 dark:text-white">AI Buddy</h1>
+                        {!isEmpty ? (
                             <button
                                 onClick={clearHistory}
-                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 hover:text-red-500 transition-colors shadow-sm"
+                                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                                title="Clear history"
                             >
-                                <Trash2 className="w-3.5 h-3.5" />Clear
+                                <Trash2 className="w-5 h-5" />
                             </button>
+                        ) : (
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 dark:bg-emerald-900/20 rounded-full">
+                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                {/* <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">Live</span> */}
+                            </div>
                         )}
                     </div>
                 </div>
@@ -175,29 +185,34 @@ export default function AiBuddy() {
                 >
                     {/* ── Welcome ── */}
                     {isEmpty && (
-                        <div className="flex flex-col items-center justify-center h-full gap-8 py-8 text-center">
+                        <div className="flex flex-col items-center justify-center min-h-[80%] gap-8 py-8 text-center px-4">
                             <div>
-                                <div className="w-14 h-14 rounded-2xl bg-gray-900 flex items-center justify-center mx-auto mb-4 shadow-lg">
+                                <div className="w-14 h-14 rounded-2xl bg-gray-900 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4 shadow-xl">
                                     <Sparkles className="w-7 h-7 text-white" />
                                 </div>
-                                <h2 className="text-xl font-bold text-gray-900 mb-1.5">Hey {studentName}! 👋</h2>
-                                <p className="text-sm text-gray-500 max-w-sm">
-                                    Ask me anything about your attendance, CGPA, grades, or get personalised academic suggestions.
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1.5">Hey {studentName}!</h2>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-[280px] mx-auto">
+                                    Ask me anything about your academics
                                 </p>
                             </div>
 
-                            {/* Quick prompt cards */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-w-2xl">
-                                {QUICK_PROMPTS.map(p => (
-                                    <button
-                                        key={p.label}
-                                        onClick={() => sendMessage(p.text)}
-                                        className="flex items-center gap-3 px-4 py-3.5 bg-white border border-gray-200 rounded-2xl text-left hover:border-gray-300 hover:shadow-sm transition-all group shadow-sm"
-                                    >
-                                        <span className="text-lg flex-shrink-0">{p.icon}</span>
-                                        <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">{p.label}</span>
-                                    </button>
-                                ))}
+                            {/* Quick prompt cards - 2 columns */}
+                            <div className="grid grid-cols-2 gap-2.5 w-full max-w-xl">
+                                {QUICK_PROMPTS.map(p => {
+                                    const Icon = p.icon;
+                                    return (
+                                        <button
+                                            key={p.label}
+                                            onClick={() => sendMessage(p.text)}
+                                            className="flex flex-col items-center gap-2 p-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl text-center hover:border-blue-200 dark:hover:border-blue-900/50 transition-all group shadow-sm"
+                                        >
+                                            <div className="w-9 h-9 rounded-xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 transition-colors">
+                                                <Icon className="w-4 h-4 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
+                                            </div>
+                                            <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white leading-tight uppercase tracking-tight">{p.label}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
@@ -274,7 +289,7 @@ export default function AiBuddy() {
                 )}
 
                 {/* ── Input bar ── */}
-                <div className="flex-shrink-0 px-6 lg:px-10 py-4 bg-gray-50 border-t border-gray-100">
+                <div className="flex-shrink-0 px-4 lg:px-10 pt-4 pb-20 lg:pb-4 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800">
                     {/* Quick chips when chat is active */}
                     {!isEmpty && (
                         <div className="flex gap-2 mb-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
@@ -282,9 +297,9 @@ export default function AiBuddy() {
                                 <button
                                     key={p.label}
                                     onClick={() => sendMessage(p.text)}
-                                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-gray-300 rounded-lg text-xs font-medium text-gray-600 hover:text-gray-900 transition-all shadow-sm"
+                                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-900 rounded-lg text-xs font-semibold text-gray-500 hover:text-blue-600 transition-all shadow-sm"
                                 >
-                                    <span>{p.icon}</span>{p.label}
+                                    {p.label}
                                 </button>
                             ))}
                         </div>
@@ -297,21 +312,21 @@ export default function AiBuddy() {
                                 value={input}
                                 onChange={e => setInput(e.target.value)}
                                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                                placeholder="Ask about your attendance, CGPA, grades…"
+                                placeholder="Message your AI Buddy..."
                                 rows={1}
-                                className="w-full resize-none bg-white border border-gray-200 focus:border-gray-900 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-900/20 transition-colors shadow-sm max-h-32"
+                                className="w-full resize-none bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 dark:focus:border-blue-600 rounded-2xl px-4 py-3.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all shadow-inner max-h-32"
                                 style={{ scrollbarWidth: 'thin' }}
                             />
                         </div>
                         <button
                             type="submit"
                             disabled={!input.trim() || loading}
-                            className="w-11 h-11 rounded-xl bg-gray-900 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center shadow-sm transition-colors flex-shrink-0"
+                            className="w-12 h-12 rounded-2xl bg-gray-900 dark:bg-gray-800 hover:bg-black dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center shadow-lg transition-all active:scale-95 flex-shrink-0"
                         >
-                            <Send className="w-4 h-4 text-white" />
+                            <Send className="w-5 h-5 text-white" />
                         </button>
                     </form>
-                    <p className="text-center text-[10px] text-gray-400 mt-2">Powered by Gemini · Data from your UMS account</p>
+                    {/* <p className="text-center text-[9px] font-medium text-gray-400 mt-3 uppercase tracking-widest">Powered by Gemini AI</p> */}
                 </div>
             </main>
         </div>

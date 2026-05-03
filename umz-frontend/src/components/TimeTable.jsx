@@ -118,6 +118,7 @@ const TimeTable = () => {
         const dayIndex = new Date().getDay();
         const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         return dayNames[dayIndex];
+        // return 'Thursday';
     };
 
     // Check if a time slot is currently active

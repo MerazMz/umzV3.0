@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { Info, Calculator, BookOpen, ChevronDown, ChevronUp, Tag } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, LineChart, Line } from 'recharts';
+import { Info, Calculator, BookOpen, ChevronDown, ChevronUp, Tag, ChevronLeft, GraduationCap, TrendingUp, Star, Award, LayoutGrid } from 'lucide-react';
 import Sidebar from './Sidebar';
-import { getStudentInfo, getResult } from '../services/api';
+import { getStudentInfo, getResult, getMarks } from '../services/api';
 import TPGACalculator from './TPGACalculator';
 import OverallCGPACalculator from './OverallCGPACalculator';
+import MobileCalculator from './MobileCalculator';
 
-const gradeColors = {
+const gradeColorsList = {
     'O':  'bg-violet-100 text-violet-800',
     'A+': 'bg-emerald-100 text-emerald-800',
     'A':  'bg-blue-100 text-blue-800',
@@ -19,25 +20,27 @@ const gradeColors = {
     'E':  'bg-red-100 text-red-700',
     'F':  'bg-red-200 text-red-800',
 };
-const gradeLabel = (g) => gradeColors[g] || 'bg-gray-100 text-gray-600';
+const gradeLabel = (g) => gradeColorsList[g] || 'bg-gray-100 text-gray-600';
 
 const CGPA = () => {
     const navigate = useNavigate();
     const [studentInfo, setStudentInfo] = useState(null);
     const [resultData, setResultData] = useState(null);
+    const [marksData, setMarksData] = useState([]);
     const [expandedTerms, setExpandedTerms] = useState({});
     const [loading, setLoading] = useState(true);
     const [resultLoading, setResultLoading] = useState(false);
     const [error, setError] = useState('');
     const [hoveredGrade, setHoveredGrade] = useState(null);
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-    const [activeTab, setActiveTab] = useState(() => {
-        const cachedTab = localStorage.getItem('umz_cgpa_active_tab');
-        return cachedTab || 'view';
-    });
-    const [calcMode, setCalcMode] = useState(() => {
-        return localStorage.getItem('umz_cgpa_calc_mode') || 'term';
-    });
+    const [activeTab, setActiveTab] = useState(() => localStorage.getItem('umz_cgpa_active_tab') || 'view');
+    const [mobileTab, setMobileTab] = useState(() => localStorage.getItem('umz_cgpa_mobile_tab') || 'overall'); // 'overall' or 'calculator'
+    const [calcMode, setCalcMode] = useState(() => localStorage.getItem('umz_cgpa_calc_mode') || 'term');
+
+    // Persist mobileTab
+    useEffect(() => {
+        localStorage.setItem('umz_cgpa_mobile_tab', mobileTab);
+    }, [mobileTab]);
 
     const fetchResultData = async (force = false) => {
         if (!force) {
@@ -69,6 +72,21 @@ const CGPA = () => {
         finally { setResultLoading(false); }
     };
 
+    const fetchMarksData = async () => {
+        const cached = localStorage.getItem('umz_marks_data');
+        if (cached) {
+            try { setMarksData(JSON.parse(cached)); return; } 
+            catch { localStorage.removeItem('umz_marks_data'); }
+        }
+        const cookies = localStorage.getItem('umz_cookies');
+        if (!cookies) return;
+        try {
+            const res = await getMarks(cookies);
+            setMarksData(res.data || []);
+            localStorage.setItem('umz_marks_data', JSON.stringify(res.data || []));
+        } catch (e) { console.warn('Marks fetch failed:', e.message); }
+    };
+
     useEffect(() => {
         const fetchData = async () => {
             const cachedInfo = localStorage.getItem('umz_student_info');
@@ -93,43 +111,125 @@ const CGPA = () => {
         };
         fetchData();
         fetchResultData();
+        fetchMarksData();
     }, [navigate]);
+
+    useEffect(() => { localStorage.setItem('umz_cgpa_active_tab', activeTab); }, [activeTab]);
+    useEffect(() => { localStorage.setItem('umz_cgpa_calc_mode', calcMode); }, [calcMode]);
+
+    const crossTermData = marksData
+        .filter(term => /^\d+$/.test(term.termId) && term.termId.length >= 6)
+        .map(term => {
+            const tid = String(term.termId);
+            const year = parseInt(tid[0]);
+            const semInYear = parseInt(tid[tid.length - 1]);
+            const semNum = (year - 1) * 2 + (semInYear === 1 ? 1 : 2);
+
+            const toRoman = (n) => {
+                const map = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII' };
+                return map[n] || n;
+            };
+
+            const assessmentAvgs = {};
+            if (term.subjects && term.subjects.length > 0) {
+                term.subjects.forEach(subject => {
+                    subject.marksBreakdown.forEach(mark => {
+                        let typeName = mark.type;
+                        if (typeName.toLowerCase().includes('attendance')) typeName = 'Attendance';
+                        else if (typeName.toLowerCase().includes('continuous')) typeName = 'CA';
+                        else if (typeName.toLowerCase().includes('mid')) typeName = 'Mid Term';
+                        else if (typeName.toLowerCase().includes('practical') && typeName.toLowerCase().includes('end')) typeName = 'Practical';
+                        else if (typeName.toLowerCase().includes('end')) typeName = 'End Term';
+
+                        if (!assessmentAvgs[typeName]) {
+                            assessmentAvgs[typeName] = { total: 0, count: 0 };
+                        }
+                        const marksMatch = String(mark.marks || '').match(/(\d+\.?\d*)\/(\d+\.?\d*)/);
+                        if (marksMatch) {
+                            const obtained = parseFloat(marksMatch[1]);
+                            const outOf = parseFloat(marksMatch[2]);
+                            const percentage = outOf > 0 ? (obtained / outOf) * 100 : 0;
+                            if (!isNaN(percentage)) {
+                                assessmentAvgs[typeName].total += percentage;
+                                assessmentAvgs[typeName].count += 1;
+                            }
+                        }
+                    });
+                });
+            }
+            const termData = { term: term.termId, semNum, name: `Sem ${toRoman(semNum)}` };
+            Object.keys(assessmentAvgs).forEach(type => {
+                termData[type] = Math.round(assessmentAvgs[type].total / assessmentAvgs[type].count);
+            });
+            return termData;
+        }).sort((a, b) => a.semNum - b.semNum);
+
+    const assessmentTypes = crossTermData.length > 0
+        ? [...new Set(crossTermData.flatMap(term => Object.keys(term).filter(key => key !== 'term' && key !== 'name' && key !== 'semNum')))]
+        : [];
+
+    const lineColors = {
+        'Attendance': '#10B981',
+        'CA': '#3B82F6',
+        'Mid Term': '#F59E0B',
+        'End Term': '#EF4444',
+        'Practical': '#8B5CF6'
+    };
 
     const toggleTerm = (id) => setExpandedTerms(prev => ({ ...prev, [id]: !prev[id] }));
 
-    // Cache active tab preference
-    useEffect(() => {
-        localStorage.setItem('umz_cgpa_active_tab', activeTab);
-    }, [activeTab]);
+    const getTrendData = () => {
+        const toRoman = (n) => {
+            const map = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII' };
+            return map[n] || n;
+        };
+        const raw = [...(studentInfo?.TermwiseCGPA || [])];
+        return raw
+            .sort((a, b) => (parseInt(a.term) || 0) - (parseInt(b.term) || 0))
+            .map(t => ({
+                name: `Sem ${toRoman(t.term)}`,
+                tgpa: parseFloat(t.tgpa) || 0,
+                cgpa: parseFloat(t.cgpa) || 0
+            }));
+    };
 
-    useEffect(() => {
-        localStorage.setItem('umz_cgpa_calc_mode', calcMode);
-    }, [calcMode]);
+    const getGradeDistribution = () => {
+        if (!resultData?.semesters) return [];
+        const counts = {};
+        const allSubjects = [
+            ...(resultData.semesters || []).flatMap(s => s.subjects || []),
+            ...(resultData.rplGrades || []).flatMap(r => r.subjects || [])
+        ];
+
+        allSubjects.forEach(sub => {
+            if (sub.grade) {
+                counts[sub.grade] = (counts[sub.grade] || 0) + 1;
+            }
+        });
+
+        const colors = {
+            'O': '#10B981', 'A+': '#3B82F6', 'A': '#6366F1', 
+            'B+': '#8B5CF6', 'B': '#F59E0B', 'C': '#F97316', 
+            'P': '#6B7280', 'F': '#EF4444'
+        };
+
+        return Object.entries(counts)
+            .map(([grade, count]) => ({
+                name: grade,
+                value: count,
+                fill: colors[grade] || '#CBD5E1'
+            }))
+            .sort((a, b) => b.value - a.value);
+    };
 
     if (loading) {
         return (
-            <div className="flex min-h-screen bg-gray-50">
+            <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
                 <Sidebar />
                 <main className="flex-1 flex items-center justify-center">
                     <div className="text-center">
-                        <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-gray-900 border-r-transparent" />
-                        <p className="mt-4 text-sm text-gray-500">Loading CGPA data...</p>
-                    </div>
-                </main>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="flex min-h-screen bg-gray-50">
-                <Sidebar />
-                <main className="flex-1 p-8">
-                    <div className="max-w-7xl mx-auto">
-                        <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">Error</h3>
-                            <p className="text-gray-600">{error}</p>
-                        </div>
+                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-800 dark:border-white border-r-transparent" />
+                        <p className="mt-4 text-sm text-gray-400">Syncing your records…</p>
                     </div>
                 </main>
             </div>
@@ -137,367 +237,292 @@ const CGPA = () => {
     }
 
     return (
-        <div className="flex h-screen bg-gray-50 overflow-hidden">
+        <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden font-plus-jakarta">
             <Sidebar />
-            <main className="flex-1 overflow-y-auto p-6 lg:p-10">
-                <div className="max-w-7xl mx-auto space-y-8">
-                    {/* Header */}
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                        <div>
-                            <h1 className="text-3xl font-bold text-gray-900 mb-1">CGPA Analysis</h1>
-                            <p className="text-gray-500">Your academic performance across all semesters</p>
+
+            <main className="flex-1 overflow-y-auto lg:p-0">
+                {/* MOBILE VIEW */}
+                <div className="lg:hidden flex flex-col min-h-full">
+                    {/* Top bar */}
+                    <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-30">
+                        <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-xl active:bg-gray-100 dark:active:bg-gray-800 transition-colors">
+                            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        </button>
+                        <h1 className="text-base font-bold text-gray-900 dark:text-white tracking-tight">CGPA Analytics</h1>
+                        <div className="w-9" />
+                    </div>
+
+                    {/* Segmented Control Tabs */}
+                    <div className="px-4 pt-4">
+                        <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-2xl">
+                            <button 
+                                onClick={() => setMobileTab('overall')}
+                                className={`flex-1 flex items-center justify-center py-2 rounded-xl text-[10px] font-bold transition-all ${mobileTab === 'overall' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-400'}`}
+                            >
+                                Overall
+                            </button>
+                            <button 
+                                onClick={() => setMobileTab('calculator')}
+                                className={`flex-1 flex items-center justify-center py-2 rounded-xl text-[10px] font-bold transition-all ${mobileTab === 'calculator' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-400'}`}
+                            >
+                                Calculator
+                            </button>
                         </div>
                     </div>
 
-                    {/* Tab Navigation */}
-                    <div className="flex gap-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-2">
-                        <button
-                            onClick={() => setActiveTab('view')}
-                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all ${activeTab === 'view'
-                                ? 'bg-gray-900 text-white shadow-sm'
-                                : 'text-gray-600 hover:bg-gray-50'
-                                }`}
-                        >
-                            <Info className="h-4 w-4" />
-                            CGPA View
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('calculator')}
-                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all ${activeTab === 'calculator'
-                                ? 'bg-gray-900 text-white shadow-sm'
-                                : 'text-gray-600 hover:bg-gray-50'
-                                }`}
-                        >
-                            <Calculator className="h-4 w-4" />
-                            Calculator Mode
-                        </button>
-                    </div>
-
-                    {/* Conditional rendering based on active tab */}
-                    {activeTab === 'view' ? (
-                        <>
-                            {/* CGPA Card and Grade Distribution Grid */}
-                            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                                {/* Overall CGPA Card */}
-                                <div className="lg:col-span-1 bg-gradient-to-br from-gray-900 to-gray-700 rounded-xl p-8 text-white flex flex-col justify-center">
-                                    <p className="text-sm font-medium opacity-90 mb-2">Current CGPA</p>
-                                    <p className="text-5xl font-bold mb-2">{studentInfo?.CGPA || 'N/A'}</p>
-                                    <p className="text-sm opacity-75">Out of 10.0</p>
+                    <div className="flex-1 pb-24 px-4 pt-6">
+                        {mobileTab === 'calculator' ? (
+                            <MobileCalculator semesterData={studentInfo?.TermwiseCGPA || []} resultData={resultData} />
+                        ) : (
+                            <>
+                                {/* Circular CGPA Chart */}
+                                <div className="flex flex-col items-center justify-center">
+                                    <div className="relative w-48 h-48">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={[
+                                                        { name: 'CGPA', value: parseFloat(studentInfo?.CGPA) || 0 },
+                                                        { name: 'Total', value: 10 - (parseFloat(studentInfo?.CGPA) || 0) }
+                                                    ]}
+                                                    cx="50%" cy="50%"
+                                                    innerRadius={65} outerRadius={85}
+                                                    paddingAngle={0} 
+                                                    cornerRadius={40}
+                                                    dataKey="value" startAngle={90} endAngle={-270}
+                                                >
+                                                    <Cell fill="#3B82F6" stroke="none" />
+                                                    <Cell fill="#F3F4F6" className="dark:fill-gray-800" stroke="none" />
+                                                </Pie>
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <span className="text-4xl font-black text-gray-900 dark:text-white">{studentInfo?.CGPA || '0.0'}</span>
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Current CGPA</span>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                {/* Grade Distribution Pie Chart */}
-                                {(() => {
-                                    // Collect all subjects with grades from all semesters
-                                    const gradeMap = {};
-                                    (studentInfo?.TermwiseCGPA || []).forEach(semester => {
-                                        if (semester.subjects && semester.subjects.length > 0) {
-                                            semester.subjects.forEach(subject => {
-                                                const grade = subject.grade;
-                                                const [code, ...nameParts] = subject.course.split('::');
-                                                const courseName = nameParts.join('::').trim();
 
-                                                if (!gradeMap[grade]) {
-                                                    gradeMap[grade] = [];
-                                                }
-                                                gradeMap[grade].push({
-                                                    code: code?.trim(),
-                                                    name: courseName
-                                                });
-                                            });
-                                        }
-                                    });
+                                {/* TGPA Trend Chart */}
+                                <div className="space-y-4">
+                                    <h3 className="text-sm font-black text-gray-900 dark:text-white tracking-tight px-1 flex items-center gap-2">
+                                        <TrendingUp className="h-4 w-4 text-blue-500" />
+                                        CGPA Progression
+                                    </h3>
+                                    <div className="h-56 w-full bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 p-4">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <AreaChart data={getTrendData()} margin={{ left: 15, right: 15, top: 10, bottom: 0 }}>
+                                                <defs>
+                                                    <linearGradient id="colorCgpa" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.1}/>
+                                                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                                                <XAxis 
+                                                    dataKey="name" 
+                                                    axisLine={false} 
+                                                    tickLine={false} 
+                                                    tick={{fontSize: 9, fill: '#9CA3AF', fontWeight: 600}} 
+                                                    dy={10} 
+                                                    padding={{ left: 10, right: 10 }}
+                                                />
+                                                <YAxis hide domain={[0, 10]} />
+                                                <Tooltip 
+                                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }}
+                                                />
+                                                <Area type="monotone" dataKey="tgpa" stroke="#3B82F6" strokeWidth={3} fillOpacity={1} fill="url(#colorCgpa)" dot={{ r: 4, fill: '#3B82F6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6, strokeWidth: 0 }} />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
 
-                                    // Sort grades in descending order (A+, A, B+, B, C+, etc.)
-                                    const gradeOrder = ['A+', 'A', 'B+', 'B', 'C+', 'C', 'D', 'E', 'F'];
-                                    const sortedGrades = Object.keys(gradeMap).sort((a, b) => {
-                                        const indexA = gradeOrder.indexOf(a);
-                                        const indexB = gradeOrder.indexOf(b);
-                                        if (indexA === -1 && indexB === -1) return a.localeCompare(b);
-                                        if (indexA === -1) return 1;
-                                        if (indexB === -1) return -1;
-                                        return indexA - indexB;
-                                    });
-
-                                    const gradeData = sortedGrades.map(grade => ({
-                                        grade,
-                                        count: gradeMap[grade].length,
-                                        subjects: gradeMap[grade]
-                                    }));
-
-                                    // Define colors for each grade
-                                    const gradeColors = {
-                                        'O': '#915df2ff',
-                                        'A+': '#10B981',
-                                        'A': '#3B82F6',
-                                        'B+': '#F59E0B',
-                                        'B': '#EF4444',
-                                        'C+': '#8B5CF6',
-                                        'C': '#EC4899',
-                                        'D': '#6B7280',
-                                        'E': '#9CA3AF',
-                                        'F': '#4B5563'
-                                    };
-
-                                    if (gradeData.length === 0) return null;
-
-                                    return (
-                                        <div className="lg:col-span-4 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                                            <h3 className="text-lg font-semibold text-gray-900 mb-6">
-                                                Grade Distribution
-                                            </h3>
-                                            <div className="flex flex-col md:flex-row items-center gap-6">
-                                                {/* Pie Chart */}
-                                                <div className="relative">
-                                                    <ResponsiveContainer width={200} height={200}>
-                                                        <PieChart>
-                                                            <Pie
-                                                                data={gradeData}
-                                                                cx="50%"
-                                                                cy="50%"
-                                                                outerRadius={80}
-                                                                dataKey="count"
-                                                                isAnimationActive={false}
-                                                            >
-                                                                {gradeData.map((entry, index) => (
-                                                                    <Cell
-                                                                        key={`cell-${index}`}
-                                                                        fill={gradeColors[entry.grade] || '#6B7280'}
-                                                                        opacity={hoveredGrade === null || hoveredGrade === entry.grade ? 1 : 0.3}
-                                                                    />
-                                                                ))}
-                                                            </Pie>
-                                                        </PieChart>
-                                                    </ResponsiveContainer>
-                                                </div>
-
-                                                {/* Legend Grid */}
-                                                <div className="flex-1 self-center">
-                                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                                        {gradeData.map((item, idx) => (
-                                                            <div
-                                                                key={idx}
-                                                                className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50 transition-colors"
-                                                                onMouseEnter={(e) => {
-                                                                    setHoveredGrade(item.grade);
-                                                                    setMousePosition({ x: e.clientX, y: e.clientY });
-                                                                }}
-                                                                onMouseMove={(e) => {
-                                                                    setMousePosition({ x: e.clientX, y: e.clientY });
-                                                                }}
-                                                                onMouseLeave={() => {
-                                                                    setHoveredGrade(null);
-                                                                }}
-                                                            >
-                                                                <div
-                                                                    className="w-3 h-3 rounded-full flex-shrink-0"
-                                                                    style={{
-                                                                        backgroundColor: gradeColors[item.grade] || '#6B7280',
-                                                                        opacity: hoveredGrade === null || hoveredGrade === item.grade ? 1 : 0.3
-                                                                    }}
-                                                                />
-                                                                <span className="text-xs text-gray-700 font-medium">
-                                                                    {item.grade} ({item.count})
-                                                                </span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                {/* Floating Subject List Tooltip */}
-                                                {hoveredGrade && (
-                                                    <div
-                                                        className="fixed z-50 pointer-events-none"
-                                                        style={{
-                                                            left: `${mousePosition.x + 15}px`,
-                                                            top: `${mousePosition.y + 15}px`
-                                                        }}
+                                {/* Grades Distribution Pie Chart */}
+                                <div className="space-y-4 pt-6">
+                                    <h3 className="text-sm font-black text-gray-900 dark:text-white tracking-tight px-1 flex items-center gap-2">
+                                        <BookOpen className="h-4 w-4 text-indigo-500" />
+                                        Grades Distribution
+                                    </h3>
+                                    <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 p-6 flex flex-col items-center shadow-sm">
+                                        <div className="h-64 w-full relative">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <PieChart>
+                                                    <Pie
+                                                        data={getGradeDistribution()}
+                                                        cx="50%" cy="50%"
+                                                        innerRadius={60} outerRadius={85}
+                                                        paddingAngle={4} cornerRadius={10}
+                                                        dataKey="value"
                                                     >
-                                                        <div className="bg-gray-900 text-white rounded-lg shadow-2xl p-4 max-w-xs">
-                                                            <p className="text-sm font-semibold mb-3 pb-2 border-b border-gray-700">
-                                                                Grade {hoveredGrade} - {gradeData.find(g => g.grade === hoveredGrade)?.subjects.length} {gradeData.find(g => g.grade === hoveredGrade)?.subjects.length === 1 ? 'Subject' : 'Subjects'}
-                                                            </p>
-                                                            <div className="space-y-2 max-h-64 overflow-y-auto">
-                                                                {gradeData.find(g => g.grade === hoveredGrade)?.subjects.map((subject, idx) => (
-                                                                    <div key={idx} className="text-xs text-gray-200 flex items-start gap-2">
-                                                                        <span className="text-gray-400">•</span>
-                                                                        <span className="flex-1">{subject.name}</span>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
+                                                        {getGradeDistribution().map((entry, index) => (
+                                                            <Cell key={`cell-${index}`} fill={entry.fill} stroke="none" />
+                                                        ))}
+                                                    </Pie>
+                                                    <Tooltip 
+                                                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }}
+                                                    />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                                <span className="text-3xl font-black text-gray-900 dark:text-white leading-none">
+                                                    {getGradeDistribution().reduce((a, b) => a + b.value, 0)}
+                                                </span>
+                                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">Courses</span>
                                             </div>
                                         </div>
-                                    );
-                                })()}
-                            </div>
-
-
-                            {/* Semester Performance Chart */}
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-6">
-                                    TGPA Progression
-                                </h3>
-                                <ResponsiveContainer width="100%" height={250}>
-                                    <BarChart
-                                        data={(studentInfo?.TermwiseCGPA || []).map(t => ({
-                                            term: `Sem ${t.term}`,
-                                            tgpa: parseFloat(t.tgpa)
-                                        }))}
-                                    >
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                                        <XAxis
-                                            dataKey="term"
-                                            tick={{ fontSize: 12, fill: '#6B7280' }}
-                                        />
-                                        <YAxis
-                                            domain={[0, 10]}
-                                            tick={{ fontSize: 12, fill: '#6B7280' }}
-                                        />
-                                        <Tooltip
-                                            contentStyle={{
-                                                backgroundColor: '#1F2937',
-                                                border: 'none',
-                                                borderRadius: '8px',
-                                                color: 'white',
-                                                fontSize: '12px'
-                                            }}
-                                            labelStyle={{ color: 'white' }}
-                                            itemStyle={{ color: 'white' }}
-                                        />
-                                        <Bar
-                                            dataKey="tgpa"
-                                            fill="#111827ff"
-                                            radius={[8, 8, 0, 0]}
-                                            isAnimationActive={false}
-                                        />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-
-                            {/* Result Accordion */}
-                            {resultLoading ? (
-                                <div className="flex items-center justify-center py-12">
-                                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-900 border-r-transparent" />
-                                    <span className="ml-3 text-sm text-gray-500">Loading result data...</span>
-                                </div>
-                            ) : resultData ? (
-                                <div className="space-y-4">
-                                    <h3 className="text-lg font-semibold text-gray-900">Term-wise Result</h3>
-                                    {(resultData.semesters || []).map(sem => {
-                                        const isOpen = expandedTerms[sem.termId];
-                                        const totalCredits = (sem.subjects || []).reduce((a, s) => a + (s.credit || 0), 0);
-                                        return (
-                                            <div key={sem.termId} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                                                <button onClick={() => toggleTerm(sem.termId)} className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center"><BookOpen className="w-5 h-5 text-white" /></div>
-                                                        <div className="text-left">
-                                                            <p className="font-semibold text-gray-900">Term {sem.termId}</p>
-                                                            <p className="text-xs text-gray-500">{(sem.subjects||[]).length} subjects · {totalCredits.toFixed(1)} credits</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-3">
-                                                        {sem.tgpa && <span className="px-3 py-1 bg-gray-100 text-gray-900 rounded-lg text-sm font-bold">TGPA {sem.tgpa}</span>}
-                                                        {isOpen ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
-                                                    </div>
-                                                </button>
-                                                {isOpen && (
-                                                    <div className="border-t border-gray-100">
-                                                        <div className="grid grid-cols-12 px-6 py-2 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                                                            <div className="col-span-2">Code</div><div className="col-span-7">Course Name</div>
-                                                            <div className="col-span-1 text-center">Cr.</div><div className="col-span-2 text-center">Grade</div>
-                                                        </div>
-                                                        {(sem.subjects || []).map((sub, idx) => (
-                                                            <div key={idx} className={`grid grid-cols-12 px-6 py-3 items-center text-sm border-t border-gray-50 hover:bg-gray-50 transition-colors ${idx%2===0?'':'bg-gray-50/50'}`}>
-                                                                <div className="col-span-2 font-mono text-xs text-gray-500">{sub.code}</div>
-                                                                <div className="col-span-7 font-medium text-gray-900 pr-4">{sub.name}</div>
-                                                                <div className="col-span-1 text-center text-gray-600 text-xs">{sub.credit!=null?sub.credit.toFixed(1):'—'}</div>
-                                                                <div className="col-span-2 text-center">{sub.grade?<span className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-bold ${gradeLabel(sub.grade)}`}>{sub.grade}</span>:'—'}</div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                    {/* RPL Section */}
-                                    {(resultData.rplGrades||[]).length > 0 && (
-                                        <div className="space-y-4 pt-2">
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex-1 h-px bg-amber-200" />
-                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-full">
-                                                    <Tag className="w-3.5 h-3.5 text-amber-600" />
-                                                    <span className="text-xs font-semibold text-amber-700 uppercase tracking-wide">RPL Grades</span>
+                                        
+                                        {/* Grade Legend Grid */}
+                                        <div className="grid grid-cols-4 gap-2.5 w-full mt-6">
+                                            {getGradeDistribution().map((entry, index) => (
+                                                <div key={index} className="flex flex-col items-center p-2 rounded-2xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 transition-all hover:scale-[1.02]">
+                                                    <span className="text-[10px] font-black" style={{ color: entry.fill }}>{entry.name}</span>
+                                                    <span className="text-sm font-bold text-gray-900 dark:text-white leading-none mt-1">{entry.value}</span>
                                                 </div>
-                                                <div className="flex-1 h-px bg-amber-200" />
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Marks Performance Graph (from /marks) */}
+                                <div className="space-y-4 mt-6">
+                                    <h3 className="text-sm font-black text-gray-900 dark:text-white tracking-tight px-1 flex items-center gap-2">
+                                        <TrendingUp className="h-4 w-4 text-emerald-500" />
+                                        Performance Across Terms
+                                    </h3>
+                                    {crossTermData.length > 0 ? (
+                                        <>
+                                            <div className="h-64 w-full bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 p-4">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <LineChart data={crossTermData} margin={{ left: 25, right: 25, top: 15, bottom: 5 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                                                        <XAxis 
+                                                            dataKey="name" 
+                                                            axisLine={false} 
+                                                            tickLine={false} 
+                                                            tick={{fontSize: 9, fill: '#9CA3AF', fontWeight: 600}} 
+                                                            dy={10} 
+                                                            interval={0}
+                                                            padding={{ left: 20, right: 20 }}
+                                                        />
+                                                        <YAxis hide domain={[0, 105]} />
+                                                        <Tooltip 
+                                                            contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }}
+                                                            formatter={(value, name) => [`${value}%`, name]}
+                                                            cursor={{ stroke: '#3B82F6', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                                        />
+                                                        {assessmentTypes.map((type) => (
+                                                            <Line
+                                                                key={type}
+                                                                type="monotone"
+                                                                dataKey={type}
+                                                                name={type}
+                                                                stroke={lineColors[type] || '#6B7280'}
+                                                                strokeWidth={2.5}
+                                                                dot={{ r: 3.5, fill: lineColors[type] || '#6B7280', strokeWidth: 1.5, stroke: '#fff' }}
+                                                                activeDot={{ r: 5, strokeWidth: 0 }}
+                                                                isAnimationActive={false}
+                                                            />
+                                                        ))}
+                                                    </LineChart>
+                                                </ResponsiveContainer>
                                             </div>
-                                            {(resultData.rplGrades||[]).map(grp => {
-                                                const key = 'rpl_'+grp.termId;
-                                                const isOpen = expandedTerms[key];
-                                                return (
-                                                    <div key={key} className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
-                                                        <button onClick={() => toggleTerm(key)} className="w-full flex items-center justify-between px-6 py-4 hover:bg-amber-50/50 transition-colors">
-                                                            <div className="flex items-center gap-4">
-                                                                <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center"><Tag className="w-5 h-5 text-white" /></div>
-                                                                <div className="text-left">
-                                                                    <p className="font-semibold text-gray-900">RPL — Term {grp.termId}</p>
-                                                                    <p className="text-xs text-gray-500">{grp.subjects.length} subject(s)</p>
-                                                                </div>
-                                                            </div>
-                                                            {isOpen?<ChevronUp className="w-5 h-5 text-gray-400"/>:<ChevronDown className="w-5 h-5 text-gray-400"/>}
-                                                        </button>
-                                                        {isOpen && (
-                                                            <div className="border-t border-amber-50">
-                                                                <div className="grid grid-cols-12 px-6 py-2 bg-amber-50/60 text-xs font-semibold text-amber-700 uppercase tracking-wide">
-                                                                    <div className="col-span-2">Code</div><div className="col-span-8">Course Name</div><div className="col-span-2 text-center">Grade</div>
-                                                                </div>
-                                                                {grp.subjects.map((sub,idx)=>(
-                                                                    <div key={idx} className={`grid grid-cols-12 px-6 py-3 items-center text-sm border-t border-amber-50 ${idx%2===0?'':'bg-amber-50/20'}`}>
-                                                                        <div className="col-span-2 font-mono text-xs text-gray-500">{sub.code}</div>
-                                                                        <div className="col-span-8 font-medium text-gray-900 pr-4">{sub.name}</div>
-                                                                        <div className="col-span-2 text-center">{sub.grade?<span className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-bold ${gradeLabel(sub.grade)}`}>{sub.grade}</span>:'—'}</div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
+                                            <div className="flex flex-wrap gap-2 px-1">
+                                                {assessmentTypes.map(type => (
+                                                    <div key={type} className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600/50">
+                                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: lineColors[type] }} />
+                                                        <span className="text-[8px] font-black uppercase text-gray-500 dark:text-gray-400 tracking-tighter">{type}</span>
                                                     </div>
-                                                );
-                                            })}
+                                                ))}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 p-8 text-center">
+                                            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500">No performance data available</p>
                                         </div>
                                     )}
                                 </div>
-                            ) : (
-                                <div className="text-center py-10 text-gray-400 text-sm">No result data available.</div>
-                            )}
-                        </>
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {/* DESKTOP VIEW */}
+                <div className="hidden lg:block max-w-7xl mx-auto px-6 lg:px-10 py-8 space-y-8">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-gray-900 flex items-center justify-center shadow-lg"><GraduationCap className="w-6 h-6 text-white" /></div>
+                            <div>
+                                <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Academic Profile</h1>
+                                <p className="text-sm text-gray-500 font-medium">Detailed CGPA and term-wise performance metrics</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-2xl">
+                            <button onClick={() => setActiveTab('view')} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'view' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500'}`}>Overview</button>
+                            <button onClick={() => setActiveTab('calculator')} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'calculator' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500'}`}>Calculator</button>
+                        </div>
+                    </div>
+
+                    {activeTab === 'view' ? (
+                        <div className="space-y-8 animate-in fade-in duration-500">
+                            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                                <div className="lg:col-span-1 bg-gradient-to-br from-gray-900 to-gray-700 rounded-3xl p-8 text-white flex flex-col justify-center shadow-xl">
+                                    <p className="text-sm font-bold opacity-60 uppercase tracking-widest mb-2">Current CGPA</p>
+                                    <p className="text-6xl font-black mb-2">{studentInfo?.CGPA || '—'}</p>
+                                    <p className="text-xs font-bold opacity-40 uppercase tracking-widest">Out of 10.0</p>
+                                </div>
+                                <div className="lg:col-span-4 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-8">
+                                    <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest mb-8">TGPA Progression</h3>
+                                    <ResponsiveContainer width="100%" height={250}>
+                                        <BarChart data={getTrendData()}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9CA3AF', fontWeight: 600 }} />
+                                            <YAxis domain={[0, 10]} hide />
+                                            <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                                            <Bar dataKey="tgpa" fill="#111827" radius={[10, 10, 0, 0]} barSize={40} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                            {/* Accordion list continues... */}
+                            <div className="space-y-4">
+                                {(resultData?.semesters || []).map(sem => (
+                                    <div key={sem.termId} className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm">
+                                        <button onClick={() => toggleTerm(sem.termId)} className="w-full flex items-center justify-between p-6">
+                                            <div className="flex items-center gap-6 text-left">
+                                                <div className="w-12 h-12 rounded-2xl bg-gray-50 dark:bg-gray-700 flex items-center justify-center font-black text-gray-900 dark:text-white">{sem.termId}</div>
+                                                <div>
+                                                    <p className="text-lg font-black text-gray-900 dark:text-white">Semester {sem.termId}</p>
+                                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{(sem.subjects || []).length} Subjects · {sem.tgpa ? `TGPA ${sem.tgpa}` : 'Result Pending'}</p>
+                                                </div>
+                                            </div>
+                                            {expandedTerms[sem.termId] ? <ChevronUp className="h-5 w-5 text-gray-400" /> : <ChevronDown className="h-5 w-5 text-gray-400" />}
+                                        </button>
+                                        {expandedTerms[sem.termId] && (
+                                            <div className="px-6 pb-6 animate-in slide-in-from-top duration-300">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    {(sem.subjects || []).map((sub, i) => (
+                                                        <div key={i} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-700/50">
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">{sub.name || sub.code}</p>
+                                                                <p className="text-[10px] font-bold text-gray-400 uppercase font-mono tracking-tighter">{sub.code} · {sub.credit} Credits</p>
+                                                            </div>
+                                                            <span className={`px-3 py-1 rounded-xl text-xs font-black ${gradeLabel(sub.grade)}`}>{sub.grade || '—'}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     ) : (
                         <div className="space-y-6">
-                            {/* Calculator sub-tab toggle */}
-                            <div className="flex gap-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-2">
-                                <button
-                                    onClick={() => setCalcMode('term')}
-                                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                                        calcMode === 'term'
-                                            ? 'bg-gray-900 text-white shadow-sm'
-                                            : 'text-gray-600 hover:bg-gray-50'
-                                    }`}
-                                >
-                                    📘 Term GPA (TGPA)
-                                </button>
-                                <button
-                                    onClick={() => setCalcMode('overall')}
-                                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                                        calcMode === 'overall'
-                                            ? 'bg-gray-900 text-white shadow-sm'
-                                            : 'text-gray-600 hover:bg-gray-50'
-                                    }`}
-                                >
-                                    🎓 Overall CGPA
-                                </button>
+                             <div className="flex gap-2 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-2">
+                                <button onClick={() => setCalcMode('term')} className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold transition-all ${calcMode === 'term' ? 'bg-gray-900 text-white shadow-xl' : 'text-gray-500 hover:bg-gray-50'}`}>📘 Term GPA</button>
+                                <button onClick={() => setCalcMode('overall')} className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold transition-all ${calcMode === 'overall' ? 'bg-gray-900 text-white shadow-xl' : 'text-gray-500 hover:bg-gray-50'}`}>🎓 Overall CGPA</button>
                             </div>
-
                             {calcMode === 'term' ? (
                                 <TPGACalculator semesterData={studentInfo?.TermwiseCGPA || []} resultData={resultData} />
                             ) : (
@@ -506,8 +531,6 @@ const CGPA = () => {
                         </div>
                     )}
                 </div>
-
-
             </main>
         </div>
     );

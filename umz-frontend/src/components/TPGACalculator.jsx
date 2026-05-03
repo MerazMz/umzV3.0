@@ -145,21 +145,19 @@ const TPGACalculator = ({ semesterData = [], resultData = null }) => {
     const hasSubjects = subjects.length > 0;
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-6 pb-20">
 
-            {/* ── Top bar: semester picker + manual + reset ── */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-wrap items-end gap-4">
-
-                {/* Semester */}
+            {/* ── Mobile Top Bar: cleaner picker ── */}
+            <div className="lg:hidden bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-4">
                 {semesterOptions.length > 0 && (
-                    <div className="flex flex-col gap-1.5 min-w-[200px] flex-1">
-                        <label className="text-xs font-medium text-gray-500">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">
                             Auto-fill from semester
                         </label>
                         <select
                             value={selectedSemester}
                             onChange={handleSemesterSelect}
-                            className="h-10 px-3 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                            className="w-full h-12 px-4 bg-gray-50 dark:bg-gray-900 border-none rounded-2xl text-sm font-bold text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500/20"
                         >
                             <option value="">Choose semester…</option>
                             {semesterOptions.map(o => (
@@ -169,84 +167,107 @@ const TPGACalculator = ({ semesterData = [], resultData = null }) => {
                     </div>
                 )}
 
-                {/* Manual */}
-                <div className="flex items-end gap-2">
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-medium text-gray-500">
-                            Manual subjects
-                        </label>
-                        <input
-                            type="number"
-                            min="1"
-                            max="20"
-                            value={manualCount}
-                            onChange={e => setManualCount(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleGenerateManual()}
-                            placeholder="e.g. 6"
-                            className="h-10 px-3 min-w-[350px] border border-gray-200 rounded-lg text-sm text-center focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                        />
-                    </div>
-
+                <div className="flex gap-2">
+                    <input
+                        type="number"
+                        min="1" max="20"
+                        value={manualCount}
+                        onChange={e => setManualCount(e.target.value)}
+                        placeholder="Manual subjects (e.g. 6)"
+                        className="flex-1 h-12 px-4 bg-gray-50 dark:bg-gray-900 border-none rounded-2xl text-sm font-bold text-gray-700 dark:text-gray-200 placeholder:text-gray-400"
+                    />
                     <button
                         onClick={handleGenerateManual}
-                        className="h-10 px-15 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition"
+                        className="px-6 bg-gray-900 dark:bg-white dark:text-gray-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest active:scale-95 transition-transform"
                     >
                         Generate
                     </button>
                 </div>
 
-                {/* Reset */}
                 {hasSubjects && (
                     <button
                         onClick={handleReset}
-                        className="h-10 px-4 flex items-center gap-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition ml-auto"
+                        className="w-full h-10 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400 bg-gray-50/50 dark:bg-gray-900/50 rounded-xl"
                     >
-                        <RotateCcw className="w-4 h-4" />
-                        Reset
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        Reset All Subjects
                     </button>
                 )}
+            </div>
 
+            {/* ── Desktop Top Bar: preserved ── */}
+            <div className="hidden lg:flex bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex-wrap items-end gap-4">
+                {semesterOptions.length > 0 && (
+                    <div className="flex flex-col gap-1.5 min-w-[200px] flex-1">
+                        <label className="text-xs font-medium text-gray-500">Auto-fill from semester</label>
+                        <select
+                            value={selectedSemester}
+                            onChange={handleSemesterSelect}
+                            className="h-10 px-3 border border-gray-200 rounded-lg text-sm bg-white"
+                        >
+                            <option value="">Choose semester…</option>
+                            {semesterOptions.map(o => (o.value && <option key={o.value} value={o.value}>{o.label}</option>))}
+                        </select>
+                    </div>
+                )}
+                <div className="flex items-end gap-2">
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-medium text-gray-500">Manual subjects</label>
+                        <input
+                            type="number"
+                            value={manualCount}
+                            onChange={e => setManualCount(e.target.value)}
+                            placeholder="e.g. 6"
+                            className="h-10 px-3 min-w-[350px] border border-gray-200 rounded-lg text-sm text-center"
+                        />
+                    </div>
+                    <button onClick={handleGenerateManual} className="h-10 px-15 bg-gray-900 text-white rounded-lg text-sm font-medium">Generate</button>
+                </div>
+                {hasSubjects && (
+                    <button onClick={handleReset} className="h-10 px-4 flex items-center gap-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg ml-auto">
+                        <RotateCcw className="w-4 h-4" /> Reset
+                    </button>
+                )}
             </div>
 
             {/* ── Subject Cards Grid ── */}
             {hasSubjects && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
                     {subjects.map((sub, idx) => (
                         <div
                             key={sub.id}
-                            className="bg-white rounded-2xl border border-gray-100 p-5 flex flex-col gap-5 relative hover:shadow-md transition"
+                            className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 p-5 flex flex-col gap-4 relative shadow-sm hover:shadow-md transition-all duration-300"
                         >
                             {/* Remove */}
                             <button
                                 onClick={() => handleRemove(sub.id)}
-                                className="absolute top-3 right-3 p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition"
+                                className="absolute top-4 right-4 p-2 rounded-xl text-gray-300 dark:text-gray-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all active:scale-90"
                             >
                                 <Trash2 className="w-4 h-4" />
                             </button>
 
                             {/* Header */}
-                            <div className="flex items-start gap-3 pr-8">
-                                <div className="w-9 h-9 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-semibold">
+                            <div className="flex items-start gap-4">
+                                <div className="w-10 h-10 rounded-2xl bg-gray-900 dark:bg-gray-700 text-white flex items-center justify-center text-sm font-black flex-shrink-0">
                                     {idx + 1}
                                 </div>
 
-                                <div className="flex-1 min-w-0">
+                                <div className="flex-1 min-w-0 pr-6">
                                     {sub.courseCode && (
-                                        <p className="text-[11px] text-gray-400 font-mono mb-0.5">
+                                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-black uppercase tracking-tighter mb-0.5">
                                             {sub.courseCode}
                                         </p>
                                     )}
-                                    <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2">
+                                    <p className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-snug line-clamp-2">
                                         {sub.courseName || "Subject"}
                                     </p>
                                 </div>
                             </div>
 
                             {/* Middle row: credits + grade */}
-                            <div className="flex items-end justify-between gap-3">
-                                {/* Credits — click to edit */}
-                                <div className="flex flex-col">
-                                    <span className="text-xs text-gray-400 mb-1">Credits</span>
+                            <div className="flex items-center justify-between gap-4 pt-2">
+                                <div className="space-y-1.5">
+                                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">Credits</span>
                                     {editingCreditId === sub.id ? (
                                         <input
                                             type="number"
@@ -255,37 +276,30 @@ const TPGACalculator = ({ semesterData = [], resultData = null }) => {
                                             autoFocus
                                             onChange={e => handleChange(sub.id, 'credit', e.target.value)}
                                             onBlur={() => setEditingCreditId(null)}
-                                            onKeyDown={e => { if (e.key === 'Enter') setEditingCreditId(null); }}
-                                            className="w-20 px-2 py-1 border border-gray-900 rounded-lg text-sm font-semibold text-center focus:outline-none focus:ring-2 focus:ring-gray-900"
+                                            onKeyDown={e => e.key === 'Enter' && setEditingCreditId(null)}
+                                            className="w-20 h-10 px-3 bg-gray-50 dark:bg-gray-900 border-2 border-gray-900 dark:border-white rounded-xl text-sm font-black text-center focus:outline-none"
                                         />
                                     ) : (
                                         <button
                                             type="button"
                                             onClick={() => setEditingCreditId(sub.id)}
-                                            title="Click to edit credit"
-                                            className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold w-fit transition-colors"
+                                            className="h-10 px-4 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl text-sm font-black min-w-[60px] transition-colors flex items-center justify-center"
                                         >
-                                            {sub.credit != null && sub.credit !== "" ? sub.credit : "—"}
+                                            {sub.credit || "—"}
                                         </button>
                                     )}
                                 </div>
 
-                                {/* Grade (fixed 👇) */}
-                                <div className="flex flex-col items-end">
-                                    <label className="text-xs text-gray-400 mb-1">Grade</label>
+                                <div className="space-y-1.5 text-right">
+                                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pr-1">Grade</label>
                                     <select
                                         value={sub.grade}
-                                        onChange={(e) =>
-                                            handleChange(sub.id, "grade", e.target.value)
-                                        }
-                                        required
-                                        className="px-3 py-2 border border-gray-200 rounded-lg text-sm font-semibold bg-gray-50 focus:bg-white focus:ring-2 focus:ring-gray-900 focus:border-transparent transition min-w-[110px]"
+                                        onChange={(e) => handleChange(sub.id, "grade", e.target.value)}
+                                        className="h-10 px-4 bg-gray-50 dark:bg-gray-900 border-none rounded-xl text-sm font-black text-gray-800 dark:text-gray-100 min-w-[120px] focus:ring-2 focus:ring-blue-500/20"
                                     >
-                                        <option value="">Select</option>
+                                        <option value="">Select Grade</option>
                                         {gradeOptions.map((g) => (
-                                            <option key={g} value={g}>
-                                                {g}
-                                            </option>
+                                            <option key={g} value={g}>{g}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -293,13 +307,12 @@ const TPGACalculator = ({ semesterData = [], resultData = null }) => {
                         </div>
                     ))}
 
-                    {/* Add card */}
                     <button
                         onClick={handleAdd}
-                        className="bg-white rounded-2xl border-2 border-dashed border-gray-200 p-5 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-all min-h-[160px]"
+                        className="bg-gray-50 dark:bg-gray-900/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800 p-6 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-all min-h-[160px]"
                     >
-                        <Plus className="w-5 h-5" />
-                        <span className="text-xs font-medium">Add Subject</span>
+                        <Plus className="w-6 h-6" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Add Subject</span>
                     </button>
                 </div>
             )}
@@ -308,7 +321,7 @@ const TPGACalculator = ({ semesterData = [], resultData = null }) => {
             {hasSubjects && (
                 <button
                     onClick={handleCalculate}
-                    className="w-full px-6 py-4 bg-gray-900 text-white rounded-xl font-bold text-base hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl"
+                    className="w-full h-14 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:shadow-2xl transition-all active:scale-[0.98]"
                 >
                     Calculate TGPA
                 </button>
@@ -316,22 +329,26 @@ const TPGACalculator = ({ semesterData = [], resultData = null }) => {
 
             {/* ── Result ── */}
             {result && (
-                <div className="bg-gradient-to-br from-gray-900 to-gray-700 rounded-2xl shadow-2xl p-10 text-center">
-                    <p className="text-gray-300 text-sm font-medium mb-2">Your Term GPA</p>
-                    <p className="text-7xl font-bold text-white mb-4">{result.gpa.toFixed(2)}</p>
-                    <p className="text-blue-400 text-xl font-medium">{result.message}</p>
-                    <p className="text-gray-400 text-xs mt-3">Out of 10.0</p>
+                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 dark:from-blue-700 dark:to-indigo-900 rounded-[2.5rem] shadow-2xl p-10 text-center animate-in zoom-in duration-500">
+                    <p className="text-blue-100 text-[10px] font-black uppercase tracking-[0.2em] mb-4">Your Term GPA</p>
+                    <div className="relative inline-block mb-4">
+                        <p className="text-8xl font-black text-white tracking-tighter">{result.gpa.toFixed(2)}</p>
+                        <div className="absolute -top-2 -right-4 bg-yellow-400 text-gray-900 text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg rotate-12">
+                            OUT OF 10
+                        </div>
+                    </div>
+                    <p className="text-blue-100 text-lg font-bold">{result.message}</p>
                 </div>
             )}
 
             {/* ── Grade reference ── */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-                <p className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">Grade Points Reference</p>
-                <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 mb-4 uppercase tracking-widest text-center">Grade Points Reference</p>
+                <div className="grid grid-cols-4 gap-2">
                     {[['O', 10], ['A+', 9], ['A', 8], ['B+', 7], ['B', 6], ['C', 5], ['D', 4], ['E/F', 0]].map(([g, p]) => (
-                        <div key={g} className="text-center py-2 px-1 bg-gray-50 rounded-lg border border-gray-100">
-                            <div className="font-bold text-gray-900 text-xs">{g}</div>
-                            <div className="text-[10px] text-gray-400 mt-0.5">{p} pts</div>
+                        <div key={g} className="text-center py-2.5 bg-gray-50 dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-700">
+                            <div className="font-black text-gray-900 dark:text-white text-xs">{g}</div>
+                            <div className="text-[9px] font-bold text-gray-400 dark:text-gray-500 mt-0.5">{p} PTS</div>
                         </div>
                     ))}
                 </div>
@@ -341,3 +358,4 @@ const TPGACalculator = ({ semesterData = [], resultData = null }) => {
 };
 
 export default TPGACalculator;
+

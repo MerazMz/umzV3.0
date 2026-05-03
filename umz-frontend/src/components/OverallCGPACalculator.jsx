@@ -114,43 +114,35 @@ const OverallCGPACalculator = ({ semesterData = [], resultData = null }) => {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-20">
             {/* Info strip + Reset */}
-            <div className="flex items-center justify-end gap-3">
-                {/* <div className="flex items-center gap-3 flex-1">
-                    <span className="text-lg">💡</span>
-                    <p className="text-sm text-purple-800">
-                        <span className="font-semibold">Formula: </span>
-                        CGPA = (TGPA₁ + TGPA₂ + … + TGPAₙ) ÷ n &nbsp;·&nbsp; Edit any TGPA, add or remove semesters, then hit Calculate.
-                    </p>
-                </div> */}
+            <div className="flex items-center justify-end px-2">
                 <button
                     onClick={handleReset}
-                    className="flex-shrink-0 px-4 py-2 text-xs font-semibold text-purple-700 bg-white border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors"
+                    className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 bg-gray-50 dark:bg-gray-900/50 rounded-xl active:scale-95 transition-transform"
                 >
-                    ↩ Reset
+                    Reset All Data
                 </button>
             </div>
-        
 
             {/* Semester cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-3">
                 {semesters.map((sem, index) => (
                     <div
                         key={sem.id}
-                        className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col items-center gap-3 relative hover:shadow-md transition-shadow duration-200"
+                        className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 flex flex-col items-center gap-3 relative animate-in fade-in slide-in-from-bottom-2 duration-300"
+                        style={{ animationDelay: `${index * 50}ms` }}
                     >
                         {/* Remove button */}
                         <button
                             onClick={() => handleRemove(sem.id)}
-                            className="absolute top-2.5 right-2.5 p-1 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                            title="Remove semester"
+                            className="absolute top-2 right-2 p-1.5 rounded-xl text-gray-300 dark:text-gray-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all active:scale-90"
                         >
                             <Trash2 className="w-3.5 h-3.5" />
                         </button>
 
                         {/* Badge */}
-                        <div className="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+                        <div className="w-8 h-8 rounded-2xl bg-gray-900 dark:bg-gray-700 text-white flex items-center justify-center text-xs font-black">
                             {index + 1}
                         </div>
 
@@ -159,7 +151,7 @@ const OverallCGPACalculator = ({ semesterData = [], resultData = null }) => {
                             type="text"
                             value={sem.label}
                             onChange={(e) => handleLabelChange(sem.id, e.target.value)}
-                            className="w-full text-xs font-semibold text-gray-500 text-center bg-transparent border-none outline-none focus:bg-gray-50 focus:rounded-md px-1 py-0.5 transition-colors"
+                            className="w-full text-[10px] font-black text-gray-400 dark:text-gray-500 text-center bg-transparent border-none outline-none uppercase tracking-tighter"
                         />
 
                         {/* TGPA input */}
@@ -168,10 +160,8 @@ const OverallCGPACalculator = ({ semesterData = [], resultData = null }) => {
                             value={sem.tgpa}
                             onChange={(e) => handleTGPAChange(sem.id, e.target.value)}
                             placeholder="TGPA"
-                            min="0"
-                            max="10"
-                            step="0.01"
-                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent text-center font-bold"
+                            min="0" max="10" step="0.01"
+                            className="w-full h-10 px-3 bg-gray-50 dark:bg-gray-900 border-none rounded-xl text-sm font-black text-center text-gray-900 dark:text-white placeholder:text-gray-300 dark:placeholder:text-gray-600 focus:ring-2 focus:ring-blue-500/20"
                         />
                     </div>
                 ))}
@@ -179,10 +169,10 @@ const OverallCGPACalculator = ({ semesterData = [], resultData = null }) => {
                 {/* Add semester card */}
                 <button
                     onClick={handleAdd}
-                    className="bg-white rounded-2xl border-2 border-dashed border-gray-200 p-5 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-all duration-200 min-h-[140px]"
+                    className="bg-gray-50 dark:bg-gray-900/30 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800 p-5 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-all min-h-[140px] active:scale-95"
                 >
                     <Plus className="w-6 h-6" />
-                    <span className="text-xs font-medium">Add Semester</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Add Term</span>
                 </button>
             </div>
 
@@ -190,7 +180,7 @@ const OverallCGPACalculator = ({ semesterData = [], resultData = null }) => {
             {semesters.length > 0 && (
                 <button
                     onClick={handleCalculate}
-                    className="w-full px-6 py-4 bg-gray-900 text-white rounded-xl font-bold text-lg hover:bg-gray-800 transition-all duration-200 shadow-lg hover:shadow-xl"
+                    className="w-full h-14 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:shadow-2xl transition-all active:scale-[0.98]"
                 >
                     Calculate Overall CGPA
                 </button>
@@ -198,12 +188,17 @@ const OverallCGPACalculator = ({ semesterData = [], resultData = null }) => {
 
             {/* Result */}
             {result && (
-                <div className="bg-gradient-to-br from-gray-900 to-gray-700 rounded-2xl shadow-2xl p-10 text-center">
-                    <p className="text-gray-300 text-sm font-medium mb-2">Your Overall CGPA</p>
-                    <p className="text-7xl font-bold text-white mb-4">{result.cgpa.toFixed(2)}</p>
-                    <p className="text-purple-400 text-xl font-medium mb-2">{getCGPAMessage(result.cgpa)}</p>
-                    <p className="text-gray-400 text-xs mt-2">
-                        Across {result.numSems} semester{result.numSems !== 1 ? 's' : ''} · Out of 10.0
+                <div className="bg-gradient-to-br from-violet-600 to-indigo-700 dark:from-violet-800 dark:to-indigo-900 rounded-[2.5rem] shadow-2xl p-10 text-center animate-in zoom-in duration-500">
+                    <p className="text-violet-100 text-[10px] font-black uppercase tracking-[0.2em] mb-4">Your Overall CGPA</p>
+                    <div className="relative inline-block mb-4">
+                        <p className="text-8xl font-black text-white tracking-tighter">{result.cgpa.toFixed(2)}</p>
+                        <div className="absolute -top-2 -right-4 bg-yellow-400 text-gray-900 text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg rotate-12">
+                            OUT OF 10
+                        </div>
+                    </div>
+                    <p className="text-violet-100 text-lg font-bold mb-2">{getCGPAMessage(result.cgpa)}</p>
+                    <p className="text-violet-200/60 text-[10px] font-black uppercase tracking-widest">
+                        Across {result.numSems} {result.numSems !== 1 ? 'Terms' : 'Term'}
                     </p>
                 </div>
             )}

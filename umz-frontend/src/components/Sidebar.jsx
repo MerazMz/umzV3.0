@@ -298,10 +298,10 @@ const Sidebar = () => {
 
     return (
         <>
-            {/* Mobile Toggle Button */}
+            {/* Mobile Toggle Button - hidden since bottom nav handles mobile nav */}
             <button
                 onClick={() => setIsMobileOpen(!isMobileOpen)}
-                className="cursor-pointer lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
+                className="cursor-pointer hidden lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
                 aria-label="Toggle menu"
             >
                 {isMobileOpen ? (
