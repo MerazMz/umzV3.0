@@ -29,9 +29,6 @@ export async function fetchStudentBasicInformation(client) {
             filteredInfo[key] = value;
         }
     }
-    
-    return filteredInfo;
-}
 
     // Save student picture if available
     if (filteredInfo.StudentPicture) {
@@ -45,51 +42,22 @@ export async function fetchStudentBasicInformation(client) {
         }
     }
 
-    // Display filtered information
-    // console.log('\n👤 STUDENT BASIC INFORMATION\n');
-    // console.log('═══════════════════════════════════════════\n');
-
-    // Display in a formatted way
+    // Display in a formatted way (commented out logs)
+    /*
     const displayOrder = [
-        'StudentName',
-        'Registrationnumber',
-        'RollNumber',
-        'StudentEmail',
-        'StudentMobile',
-        'Program',
-        'Section',
-        'BatchYear',
-        'DateofBirth',
-        'Gender',
-        'CGPA',
-        'AggAttendance',
-        'PendingFee',
-        'FatherName',
-        'MotherName',
-        'FatherMobile',
-        'FatherEmail',
-        'MotherMobile',
-        'MotherEmail'
+        'StudentName', 'Registrationnumber', 'RollNumber', 'StudentEmail', 
+        'StudentMobile', 'Program', 'Section', 'BatchYear', 'DateofBirth', 
+        'Gender', 'CGPA', 'AggAttendance', 'PendingFee', 'FatherName', 
+        'MotherName', 'FatherMobile', 'FatherEmail', 'MotherMobile', 'MotherEmail'
     ];
 
-    // Display ordered fields first
     displayOrder.forEach(key => {
         if (filteredInfo[key]) {
             const label = key.replace(/([A-Z])/g, ' $1').trim();
             // console.log(`${label}: ${filteredInfo[key]}`);
         }
     });
-
-    // Display remaining fields that weren't in displayOrder
-    // console.log('\n--- Additional Information ---\n');
-    for (const [key, value] of Object.entries(filteredInfo)) {
-        if (!displayOrder.includes(key) && key !== 'StudentPicture' && key !== '__type') {
-            const label = key.replace(/([A-Z])/g, ' $1').trim();
-            // console.log(`${label}: ${value}`);
-        }
-    }
-
-    // console.log('\n═══════════════════════════════════════════\n');
+    */
 
     return filteredInfo;
 }
