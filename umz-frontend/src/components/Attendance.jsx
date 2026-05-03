@@ -221,19 +221,19 @@ const Attendance = () => {
                                 </div>
 
                                 {/* Summary Stats Card */}
-                                <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
-                                    <div className="grid grid-cols-3 divide-x divide-gray-50 dark:divide-gray-700/50">
+                                <div className="bg-white dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800 p-5">
+                                    <div className="grid grid-cols-3 divide-x divide-gray-100 dark:divide-gray-800">
                                         <div className="text-center">
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Present</p>
-                                            <p className="text-xl font-black text-gray-900 dark:text-white">{stats.present}</p>
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Present</p>
+                                            <p className="text-lg font-bold text-gray-900 dark:text-white">{stats.present}</p>
                                         </div>
                                         <div className="text-center">
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Absent</p>
-                                            <p className="text-xl font-black text-gray-900 dark:text-white">{stats.absent}</p>
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Absent</p>
+                                            <p className="text-lg font-bold text-gray-900 dark:text-white">{stats.absent}</p>
                                         </div>
                                         <div className="text-center">
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Total</p>
-                                            <p className="text-xl font-black text-gray-900 dark:text-white">{stats.total}</p>
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total</p>
+                                            <p className="text-lg font-bold text-gray-900 dark:text-white">{stats.total}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -281,12 +281,12 @@ const Attendance = () => {
                                     </h3>
 
                                     {/* Filter Controls (Moved here) */}
-                                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 px-1">
                                         {['all', 'good', 'warning', 'critical'].map(f => (
                                             <button 
                                                 key={f}
                                                 onClick={() => setFilterStatus(f)}
-                                                className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all ${filterStatus === f ? 'bg-gray-900 text-white shadow-md' : 'bg-white dark:bg-gray-800 text-gray-400 border border-gray-100 dark:border-gray-700'}`}
+                                                className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border ${filterStatus === f ? 'bg-gray-900 border-gray-900 text-white' : 'bg-transparent text-gray-400 border-gray-100 dark:border-gray-800'}`}
                                             >
                                                 {f === 'all' ? 'All' : f === 'good' ? 'On Track' : f === 'warning' ? 'At Risk' : 'Shortage'}
                                             </button>
@@ -294,46 +294,43 @@ const Attendance = () => {
                                     </div>
 
                                     {/* Detailed Subject Cards (Replacing simple list) */}
-                                    <div className="space-y-4">
+                                    <div className="space-y-3">
                                         {filteredData.map((item, index) => {
                                             const pct = getPercentage(item);
                                             const status = getStatus(pct);
                                             return (
-                                                <div key={index} className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 p-5 shadow-sm relative overflow-hidden active:scale-[0.98] transition-all" onClick={() => { setSelectedCourse(item); setIsModalOpen(true); }}>
-                                                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${status.bar}`} />
-                                                    <div className="flex items-start justify-between mb-4">
-                                                        <div className="flex-1 pr-2">
-                                                            {rplSubjectMap[(item.courseCode || '').trim().toUpperCase()] && (
-                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-full text-[9px] font-black tracking-tight mb-2">
-                                                                    🏅 RPL · Grade {rplSubjectMap[(item.courseCode || '').trim().toUpperCase()]}
-                                                                </span>
-                                                            )}
-                                                            <h4 className="text-[13px] font-black text-gray-900 dark:text-white leading-tight mb-1">{item.courseTitle && item.courseTitle !== 'N/A' ? item.courseTitle : item.courseCode}</h4>
-                                                            {item.courseTitle && item.courseTitle !== 'N/A' && (
-                                                                <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase font-mono tracking-tighter">{item.courseCode}</span>
-                                                            )}
+                                                <div 
+                                                    key={index} 
+                                                    className="bg-white dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800 p-4 active:scale-[0.98] transition-all" 
+                                                    onClick={() => { setSelectedCourse(item); setIsModalOpen(true); }}
+                                                >
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className="flex-1 min-w-0 pr-3">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <h4 className="text-[12px] font-bold text-gray-900 dark:text-white truncate">
+                                                                    {item.courseTitle && item.courseTitle !== 'N/A' ? item.courseTitle : item.courseCode}
+                                                                </h4>
+                                                                {rplSubjectMap[(item.courseCode || '').trim().toUpperCase()] && (
+                                                                    <span className="shrink-0 px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 rounded text-[8px] font-bold">RPL</span>
+                                                                )}
+                                                            </div>
+                                                            <span className="text-[9px] font-medium text-gray-400 uppercase tracking-wider">{item.courseCode}</span>
                                                         </div>
-                                                        <div className="text-right shrink-0">
-                                                            <p className={`text-2xl font-black ${status.text}`}>{pct.toFixed(0)}%</p>
-                                                            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">{status.label}</p>
+                                                        <div className="text-right">
+                                                            <span className={`text-[15px] font-black ${status.text}`}>{pct.toFixed(0)}%</span>
                                                         </div>
                                                     </div>
-                                                    <div className="grid grid-cols-4 gap-2 pt-4 border-t border-gray-50 dark:border-gray-700/50">
-                                                        <div className="text-center">
-                                                            <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Present</p>
-                                                            <p className="text-[11px] font-black text-gray-900 dark:text-white">{item.presentCount}</p>
+
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center justify-between text-[9px] font-bold text-gray-400 uppercase tracking-tight">
+                                                            <span>{item.presentCount} / {item.totalRecords} Classes</span>
+                                                            <span className={status.text}>{status.label}</span>
                                                         </div>
-                                                        <div className="text-center">
-                                                            <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Absent</p>
-                                                            <p className="text-[11px] font-black text-gray-900 dark:text-white">{item.absentCount}</p>
-                                                        </div>
-                                                        <div className="text-center">
-                                                            <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Total</p>
-                                                            <p className="text-[11px] font-black text-gray-900 dark:text-white">{item.totalRecords}</p>
-                                                        </div>
-                                                        <div className="text-center">
-                                                            <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Duty L.</p>
-                                                            <p className="text-[11px] font-black text-gray-900 dark:text-white">{item.od || '0'}</p>
+                                                        <div className="h-1 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                            <div 
+                                                                className={`h-full rounded-full transition-all duration-500 ${status.bar}`} 
+                                                                style={{ width: `${Math.min(pct, 100)}%` }} 
+                                                            />
                                                         </div>
                                                     </div>
                                                 </div>

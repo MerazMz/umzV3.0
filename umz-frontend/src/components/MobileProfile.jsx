@@ -60,15 +60,15 @@ const MobileProfile = ({ studentInfo, onLogout, onNavigate }) => {
                     <p className="text-white/30 text-[10px] font-bold uppercase tracking-[0.2em]">Official Academic Records</p>
                 </div>
 
-                <div className="px-6 -mt-10 space-y-3 relative z-10">
+                <div className="px-4 sm:px-6 -mt-10 space-y-3 relative z-10 pb-8">
                     {details.map((detail, idx) => (
-                        <div key={idx} className="bg-white dark:bg-gray-900 p-4 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm flex items-center gap-4 active:scale-[0.99] transition-transform">
-                            <div className="w-11 h-11 rounded-2xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center shrink-0">
-                                <detail.icon className="w-5 h-5 text-gray-400" />
+                        <div key={idx} className="bg-white dark:bg-gray-900 p-4 rounded-[1.5rem] sm:rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm flex items-start gap-4 active:scale-[0.99] transition-transform">
+                            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center shrink-0 mt-0.5">
+                                <detail.icon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-0.5">{detail.label}</p>
-                                <p className="text-[13px] font-semibold text-gray-900 dark:text-white truncate">{detail.value || 'Not provided'}</p>
+                            <div className="flex-1 min-w-0 pt-0.5">
+                                <p className="text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase tracking-[0.12em] sm:tracking-[0.15em] mb-0.5">{detail.label}</p>
+                                <p className="text-[12px] sm:text-[13px] font-semibold text-gray-900 dark:text-white break-words leading-relaxed">{detail.value || 'Not provided'}</p>
                             </div>
                         </div>
                     ))}
