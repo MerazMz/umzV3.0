@@ -44,9 +44,44 @@ const Login = () => {
         const checkExistingSession = async () => {
             const queryParams = new URLSearchParams(location.search);
             const queryRegno = queryParams.get('regno');
+            const queryCookies = queryParams.get('cookies');
+
+            // Helper to clear cache when switching users
+            const clearUserCache = () => {
+                console.log('🔄 Clearing user cache');
+                localStorage.removeItem('umz_student_info');
+                localStorage.removeItem('umz_timetable_data');
+                localStorage.removeItem('umz_result_data');
+                localStorage.removeItem('umz_attendance_summary');
+            };
+
+            // NEW: Direct cookie injection (for WebView/Mobile Apps)
+            if (queryRegno && queryCookies) {
+                try {
+                    setLoading(true);
+                    setError('Synchronizing mobile session...');
+                    
+                    const oldRegno = localStorage.getItem('umz_regno');
+                    if (oldRegno !== queryRegno) clearUserCache();
+
+                    localStorage.setItem('umz_regno', queryRegno);
+                    localStorage.setItem('umz_cookies', queryCookies);
+                    
+                    // Sync with backend database
+                    await saveSession(queryRegno, queryCookies);
+                    
+                    navigate('/dashboard');
+                    return;
+                } catch (err) {
+                    console.error('Mobile sync failed:', err.message);
+                    setError('Mobile sync failed. Please login manually.');
+                } finally {
+                    setLoading(false);
+                }
+            }
             
-            // If we have a regno in the URL, try to auto-login
-            if (queryRegno) {
+            // Existing logic: If we have ONLY a regno, try recovery from DB
+            else if (queryRegno) {
                 setRegno(queryRegno);
                 try {
                     setLoading(true);
@@ -55,17 +90,9 @@ const Login = () => {
                     const result = await getStudentInfo({ regno: queryRegno });
                     
                     if (result.success) {
-                        // Check if we are switching users
                         const oldRegno = localStorage.getItem('umz_regno');
-                        if (oldRegno && oldRegno !== queryRegno) {
-                            console.log('🔄 User switch detected, clearing cache');
-                            localStorage.removeItem('umz_student_info');
-                            localStorage.removeItem('umz_timetable_data');
-                            localStorage.removeItem('umz_result_data');
-                            localStorage.removeItem('umz_attendance_summary');
-                        }
+                        if (oldRegno && oldRegno !== queryRegno) clearUserCache();
 
-                        // Success! Store regno and cookies, then navigate
                         localStorage.setItem('umz_regno', queryRegno);
                         if (result.cookies) {
                             localStorage.setItem('umz_cookies', result.cookies);
