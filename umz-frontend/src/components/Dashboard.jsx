@@ -52,43 +52,54 @@ const Dashboard = () => {
         const fetchData = async () => {
             // First, always check for cached data
             const cachedInfo = localStorage.getItem('umz_student_info');
+            const currentRegno = localStorage.getItem('umz_regno');
+
             if (cachedInfo) {
                 try {
                     const parsed = JSON.parse(cachedInfo);
-                    console.log('📦 Using cached student info');
-                    setStudentInfo(parsed);
-                    setLoading(false);
+                    
+                    // Verify the cache belongs to the currently logged-in regno
+                    if (currentRegno && parsed.Registrationnumber && parsed.Registrationnumber !== currentRegno) {
+                        console.warn('⚠️ Cached data belongs to a different student, ignoring.');
+                        localStorage.removeItem('umz_student_info');
+                    } else {
+                        console.log('📦 Using cached student info');
+                        setStudentInfo(parsed);
+                        setLoading(false);
 
-                    // Still fetch seating plan even with cached student info
-                    const cookies = localStorage.getItem('umz_cookies');
-                    if (cookies) {
-                        fetchSeatingPlanData(cookies);
+                        // Still fetch seating plan even with cached student info
+                        const cookies = localStorage.getItem('umz_cookies');
+                        const auth = cookies ? cookies : { regno: currentRegno };
+                        fetchSeatingPlanData(auth);
+
+                        return; // Use cache, don't fetch student info again
                     }
-
-                    return; // Use cache, don't fetch student info again
                 } catch (e) {
                     console.error('Error parsing cached student info:', e);
                     localStorage.removeItem('umz_student_info');
                 }
             }
 
-            // No cache available - check if we have cookies
+            // No cache available - check if we have cookies or a saved session
             const cookies = localStorage.getItem('umz_cookies');
+            const regno = localStorage.getItem('umz_regno');
 
-            if (!cookies) {
-                // No cookies and no cache - show empty state
-                console.log('⚠️ No cookies and no cached data');
+            if (!cookies && !regno) {
+                // No session found - show empty state
+                console.log('⚠️ No session found in localStorage');
                 setLoading(false);
                 setError('');
                 setStudentInfo(null);
                 return;
             }
 
+            const auth = cookies ? cookies : { regno };
+
             // We have cookies but no cache - fetch fresh data
             try {
                 setLoading(true);
-                console.log('🌐 Fetching fresh student info from API');
-                const result = await getStudentInfo(cookies);
+                console.log('🌐 Fetching fresh student info from API using:', cookies ? 'cookies' : 'regno');
+                const result = await getStudentInfo(auth);
                 console.log('📨 Messages in response:', result.data?.Messages);
                 setStudentInfo(result.data);
 
@@ -96,7 +107,7 @@ const Dashboard = () => {
                 localStorage.setItem('umz_student_info', JSON.stringify(result.data));
 
                 // Fetch seating plan
-                fetchSeatingPlanData(cookies);
+                fetchSeatingPlanData(auth);
 
                 setError('');
             } catch (err) {
@@ -111,10 +122,10 @@ const Dashboard = () => {
         };
 
         // Helper function to fetch seating plan
-        const fetchSeatingPlanData = async (cookies) => {
+        const fetchSeatingPlanData = async (auth) => {
             try {
                 console.log('🪑 Fetching seating plan...');
-                const seatingPlanResult = await getSeatingPlan(cookies);
+                const seatingPlanResult = await getSeatingPlan(auth);
                 console.log('📋 Seating Plan Response:', seatingPlanResult);
                 console.log('📋 Seating Plan Data:', seatingPlanResult.data);
                 setSeatingPlan(seatingPlanResult.data);
@@ -136,10 +147,15 @@ const Dashboard = () => {
             }
             // No cache — try fetching fresh
             const cookies = localStorage.getItem('umz_cookies');
-            if (!cookies) return;
+            const regno = localStorage.getItem('umz_regno');
+            
+            if (!cookies && !regno) return;
+            
+            const auth = cookies ? cookies : { regno };
+
             try {
                 setTimetableLoading(true);
-                const result = await getTimeTable(cookies);
+                const result = await getTimeTable(auth);
                 setTimetable(result.data);
                 localStorage.setItem('umz_timetable_data', JSON.stringify(result.data));
             } catch (e) {

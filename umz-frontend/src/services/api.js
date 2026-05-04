@@ -1,224 +1,138 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
 /**
+ * Helper to construct the request body based on provided auth info
+ * @param {string|object} auth - Either cookie string or { regno } or { cookies }
+ */
+const getAuthBody = (auth) => {
+    if (typeof auth === 'string') return { cookies: auth };
+    return auth; // Already an object like { regno: '...' } or { cookies: '...' }
+};
+
+/**
  * Start the login process
- * @param {string} regno - Registration number
- * @param {string} password - Password
- * @returns {Promise<{sessionId: string, captchaImage: string}>}
  */
 export async function startLogin(regno, password) {
     const response = await fetch(`${API_BASE_URL}/start-login`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ regno, password }),
     });
-
     const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.error || 'Failed to start login');
-    }
-
+    if (!response.ok) throw new Error(data.error || 'Failed to start login');
     return data;
 }
 
 /**
  * Complete the login process
- * @param {string} sessionId - Session ID from start-login
- * @param {string} captcha - Captcha text entered by user
- * @returns {Promise<{success: boolean, cookies: string}>}
  */
 export async function completeLogin(sessionId, captcha) {
     const response = await fetch(`${API_BASE_URL}/complete-login`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, captcha }),
     });
-
     const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.error || 'Failed to complete login');
-    }
-
+    if (!response.ok) throw new Error(data.error || 'Failed to complete login');
     return data;
 }
 
 /**
  * Get student basic information
- * @param {string} cookies - Cookie string from login
- * @returns {Promise<{success: boolean, data: object}>}
  */
-export async function getStudentInfo(cookies) {
+export async function getStudentInfo(auth) {
     const response = await fetch(`${API_BASE_URL}/student-info`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ cookies }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getAuthBody(auth)),
     });
-
     const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch student information');
-    }
-
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch student information');
     return data;
 }
 
 /**
  * Get student attendance data
- * @param {string} cookies - Cookie string from login
- * @returns {Promise<{success: boolean, data: object}>}
  */
-export async function getAttendance(cookies) {
+export async function getAttendance(auth) {
     const response = await fetch(`${API_BASE_URL}/attendance`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ cookies }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getAuthBody(auth)),
     });
-
     const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch attendance data');
-    }
-
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch attendance data');
     return data;
 }
 
 /**
  * Get detailed student attendance data (subject-wise)
- * @param {string} cookies - Cookie string from login
- * @returns {Promise<{success: boolean, data: array}>}
  */
-export async function getAttendanceDetails(cookies) {
+export async function getAttendanceDetails(auth) {
     const response = await fetch(`${API_BASE_URL}/attendance-details`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ cookies }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getAuthBody(auth)),
     });
-
     const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch attendance details');
-    }
-
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch attendance details');
     return data;
 }
 
 /**
  * Get term-wise marks data
- * @param {string} cookies - Session cookies
- * @returns {Promise<{success: boolean, data: Array}>}
  */
-export async function getMarks(cookies) {
+export async function getMarks(auth) {
     const response = await fetch(`${API_BASE_URL}/marks`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ cookies }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getAuthBody(auth)),
     });
-
     const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch marks');
-    }
-
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch marks');
     return data;
 }
 
 /**
  * Get student timetable
- * @param {string} cookies - Session cookies
- * @returns {Promise<{success: boolean, data: Object}>}
  */
-export async function getTimeTable(cookies) {
+export async function getTimeTable(auth) {
     const response = await fetch(`${API_BASE_URL}/timetable`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ cookies }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getAuthBody(auth)),
     });
-
     const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch timetable');
-    }
-
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch timetable');
     return data;
 }
 
 /**
  * Get student courses
- * @param {string} cookies - Session cookies
- * @returns {Promise<{success: boolean, data: Array}>}
  */
-export async function getCourses(cookies) {
+export async function getCourses(auth) {
     const response = await fetch(`${API_BASE_URL}/courses`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ cookies }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getAuthBody(auth)),
     });
-
     const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch courses');
-    }
-
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch courses');
     return data;
 }
 
 /**
  * Get student seating plan
- * @param {string} cookies - Session cookies
- * @returns {Promise<{success: boolean, data: Array}>}
  */
-export async function getSeatingPlan(cookies) {
+export async function getSeatingPlan(auth) {
     try {
         const response = await fetch(`${API_BASE_URL}/seating-plan`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ cookies }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(getAuthBody(auth)),
         });
-
-        // Log the raw response for debugging
-        const responseText = await response.text();
-        // console.log('🔍 Raw seating plan response:', responseText.substring(0, 500));
-
-        // Try to parse as JSON
-        let data;
-        try {
-            data = JSON.parse(responseText);
-        } catch (parseError) {
-            console.error('❌ JSON parse error:', parseError);
-            console.error('Response was:', responseText);
-            throw new Error('Invalid JSON response from server');
-        }
-
-        if (!response.ok) {
-            throw new Error(data.error || 'Failed to fetch seating plan');
-        }
-
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch seating plan');
         return data;
     } catch (error) {
         console.error('❌ Error in getSeatingPlan:', error);
@@ -226,16 +140,14 @@ export async function getSeatingPlan(cookies) {
     }
 }
 
-
 /**
- * Get student hostel information (VID, Name, Hostel, Room No)
- * @param {string} cookies - Session cookies
+ * Get student hostel information
  */
-export async function getHostelInfo(cookies) {
+export async function getHostelInfo(auth) {
     const response = await fetch(`${API_BASE_URL}/hostel-info`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cookies }),
+        body: JSON.stringify(getAuthBody(auth)),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to fetch hostel information');
@@ -292,6 +204,9 @@ export async function deleteMutualShiftPost(vid) {
     return data;
 }
 
+/**
+ * Get all active mutual shift posts
+ */
 export async function getAllMutualShiftPosts() {
     const response = await fetch(`${API_BASE_URL}/mutual-shift`);
     const data = await response.json();
@@ -300,20 +215,22 @@ export async function getAllMutualShiftPosts() {
 }
 
 /**
- * Get student result (subjects, credits, grades, CGPA) grouped by semester
- * @param {string} cookies - Session cookies
- * @returns {Promise<{success: boolean, data: {cgpa: string, semesters: Array}}>}
+ * Get student result
  */
-export async function getResult(cookies) {
+export async function getResult(auth) {
     const response = await fetch(`${API_BASE_URL}/result`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cookies }),
+        body: JSON.stringify(getAuthBody(auth)),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to fetch result');
     return data;
 }
+
+/**
+ * Send message to AI Buddy
+ */
 export async function sendAIBuddyMessage(message, data, history) {
     const response = await fetch(`${API_BASE_URL}/ai-buddy`, {
         method: 'POST',
@@ -323,4 +240,18 @@ export async function sendAIBuddyMessage(message, data, history) {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'AI Buddy error');
     return result;
+}
+
+/**
+ * Save UMS session cookies to the backend
+ */
+export async function saveSession(regno, cookies) {
+    const response = await fetch(`${API_BASE_URL}/save-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ regno, cookies }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to save session');
+    return data;
 }

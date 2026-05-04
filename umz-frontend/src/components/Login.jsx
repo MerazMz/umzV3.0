@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+
 import { RefreshCw } from 'lucide-react';
 import logoUmz from '../assets/logoUMz.png';
-import { startLogin, completeLogin } from '../services/api';
+import { startLogin, completeLogin, saveSession, getStudentInfo } from '../services/api';
+
 import loginImg1 from '../assets/login1.jpg'
 import loginImg2 from '../assets/login2.jpg'
 import loginImg3 from '../assets/login3.jpg'
 
 const Login = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+
     const [theme, setTheme] = useState('light');
     const [currentSlide, setCurrentSlide] = useState(0);
     const [showPassword, setShowPassword] = useState(false);
@@ -36,13 +40,56 @@ const Login = () => {
         setTheme(savedTheme);
         document.documentElement.classList.toggle('dark', savedTheme === 'dark');
 
-        // Load saved credentials from localStorage
-        const savedRegno = localStorage.getItem('umz_regno');
-        const savedPassword = localStorage.getItem('umz_password');
+        // Session Auto-Recovery: ONLY if 'regno' is provided in the URL query params
+        const checkExistingSession = async () => {
+            const queryParams = new URLSearchParams(location.search);
+            const queryRegno = queryParams.get('regno');
+            
+            // If we have a regno in the URL, try to auto-login
+            if (queryRegno) {
+                setRegno(queryRegno);
+                try {
+                    setLoading(true);
+                    setError('Checking active session for ' + queryRegno + '...');
+                    
+                    const result = await getStudentInfo({ regno: queryRegno });
+                    
+                    if (result.success) {
+                        // Check if we are switching users
+                        const oldRegno = localStorage.getItem('umz_regno');
+                        if (oldRegno && oldRegno !== queryRegno) {
+                            console.log('🔄 User switch detected, clearing cache');
+                            localStorage.removeItem('umz_student_info');
+                            localStorage.removeItem('umz_timetable_data');
+                            localStorage.removeItem('umz_result_data');
+                            localStorage.removeItem('umz_attendance_summary');
+                        }
 
-        if (savedRegno) setRegno(savedRegno);
-        if (savedPassword) setPassword(savedPassword);
-    }, []);
+                        // Success! Store regno and cookies, then navigate
+                        localStorage.setItem('umz_regno', queryRegno);
+                        if (result.cookies) {
+                            localStorage.setItem('umz_cookies', result.cookies);
+                        }
+                        navigate('/dashboard');
+                        return;
+                    }
+                } catch (err) {
+                    console.log('URL session recovery failed:', err.message);
+                    setError('Session recovery failed. Please login manually.');
+                } finally {
+                    setLoading(false);
+                }
+            } else {
+                // Normal flow: just load saved credentials if available, but don't auto-redirect
+                const savedRegno = localStorage.getItem('umz_regno');
+                const savedPassword = localStorage.getItem('umz_password');
+                if (savedRegno) setRegno(savedRegno);
+                if (savedPassword) setPassword(savedPassword);
+            }
+        };
+
+        checkExistingSession();
+    }, [location.search, navigate]);
 
     useEffect(() => {
         // Auto-rotate slider every 5 seconds
@@ -114,6 +161,15 @@ const Login = () => {
                 if (result.cookies) {
                     // console.log('🍪 Received cookies from backend:', result.cookies);
                     localStorage.setItem('umz_cookies', result.cookies);
+
+                    // Save session to backend for persistence and cross-device access
+                    try {
+                        await saveSession(regno, result.cookies);
+                    } catch (saveErr) {
+                        console.error('⚠️ Failed to save session to backend:', saveErr);
+                        // We don't block the user if saving to backend fails, 
+                        // as they still have cookies in localStorage
+                    }
                 }
 
                 // Store credentials for future use

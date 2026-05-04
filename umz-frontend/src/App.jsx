@@ -17,7 +17,7 @@ import './App.css';
 
 function AppContent() {
   const location = useLocation();
-  const isLoginPage = location.pathname === '/';
+  const isLoginPage = location.pathname === '/' || location.pathname === '/login';
   
   // Get student info for the nav
   const studentInfoStr = localStorage.getItem('umz_student_info');
@@ -38,6 +38,7 @@ function AppContent() {
     <>
       <Routes>
         <Route path="/" element={<Login />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/attendance" element={<Attendance />} />
         <Route path="/marks" element={<Marks />} />

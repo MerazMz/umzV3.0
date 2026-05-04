@@ -21,6 +21,8 @@ import { fetchHostelInfo } from './src/modules/GetHostelInfo.js';
 import { fetchStudentResult } from './src/modules/GetStudentResult.js';
 import { getAIBuddyResponse } from './src/modules/AiBuddy.js';
 import MutualShiftPost from './src/models/MutualShiftPost.js';
+import UserSession from './src/models/UserSession.js';
+
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -301,20 +303,70 @@ app.post('/api/complete-login', async (req, res) => {
 });
 
 /**
- * POST /api/student-info
- * Fetch student basic information using stored cookies
+ * POST /api/save-session
+ * Save UMS cookies for a student to enable data fetching without sending cookies in every request
  */
-app.post('/api/student-info', async (req, res) => {
-    const { cookies } = req.body;
+app.post('/api/save-session', async (req, res) => {
+    const { regno, cookies } = req.body;
 
-    if (!cookies) {
+    if (!regno || !cookies) {
         return res.status(400).json({
             success: false,
-            error: 'Cookies are required'
+            error: 'Registration number and cookies are required'
         });
     }
 
     try {
+        await UserSession.findOneAndUpdate(
+            { regno },
+            { cookies, updatedAt: Date.now() },
+            { upsert: true, new: true }
+        );
+
+        return res.json({
+            success: true,
+            message: 'Session saved successfully'
+        });
+    } catch (error) {
+        console.error('❌ Error saving session:', error.message);
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to save session'
+        });
+    }
+});
+
+/**
+ * Helper to get cookies from body or DB
+ */
+async function getEffectiveCookies(req) {
+    const { cookies, regno } = req.body;
+    
+    if (cookies) return cookies;
+    
+    if (regno) {
+        const session = await UserSession.findOne({ regno });
+        if (session) return session.cookies;
+    }
+    
+    return null;
+}
+
+/**
+ * POST /api/student-info
+ * Fetch student basic information using stored cookies
+ */
+app.post('/api/student-info', async (req, res) => {
+    try {
+        const cookies = await getEffectiveCookies(req);
+
+        if (!cookies) {
+            return res.status(400).json({
+                success: false,
+                error: 'Cookies or registration number are required'
+            });
+        }
+
         // console.log('📊 Fetching student information...');
 
         // Create axios client with cookies
@@ -338,7 +390,8 @@ app.post('/api/student-info', async (req, res) => {
 
         return res.json({
             success: true,
-            data: combinedData
+            data: combinedData,
+            cookies: cookies // Return the cookies used (whether from body or DB)
         });
 
     } catch (error) {
@@ -356,16 +409,16 @@ app.post('/api/student-info', async (req, res) => {
  * Fetch student attendance data using stored cookies
  */
 app.post('/api/attendance', async (req, res) => {
-    const { cookies } = req.body;
-
-    if (!cookies) {
-        return res.status(400).json({
-            success: false,
-            error: 'Cookies are required'
-        });
-    }
-
     try {
+        const cookies = await getEffectiveCookies(req);
+
+        if (!cookies) {
+            return res.status(400).json({
+                success: false,
+                error: 'Cookies or registration number are required'
+            });
+        }
+
         // console.log('📊 Fetching attendance data...');
 
         // Create axios client with cookies
@@ -400,16 +453,16 @@ app.post('/api/attendance', async (req, res) => {
  * Fetch detailed subject-wise attendance using stored cookies
  */
 app.post('/api/attendance-details', async (req, res) => {
-    const { cookies } = req.body;
-
-    if (!cookies) {
-        return res.status(400).json({
-            success: false,
-            error: 'Cookies are required'
-        });
-    }
-
     try {
+        const cookies = await getEffectiveCookies(req);
+
+        if (!cookies) {
+            return res.status(400).json({
+                success: false,
+                error: 'Cookies or registration number are required'
+            });
+        }
+
         // console.log('📊 Fetching detailed attendance data...');
 
         // Create axios client with cookies
@@ -489,13 +542,13 @@ app.listen(PORT, () => {
  * Fetch student result (subjects, credits, grades, CGPA) grouped by semester
  */
 app.post('/api/result', async (req, res) => {
-    const { cookies } = req.body;
-
-    if (!cookies) {
-        return res.status(400).json({ success: false, error: 'Cookies are required' });
-    }
-
     try {
+        const cookies = await getEffectiveCookies(req);
+
+        if (!cookies) {
+            return res.status(400).json({ success: false, error: 'Cookies or registration number are required' });
+        }
+
         // console.log('📋 Fetching student result...');
         const axiosClient = createAxiosClient(cookies);
         const resultData = await fetchStudentResult(axiosClient);
@@ -512,16 +565,16 @@ app.post('/api/result', async (req, res) => {
  * Fetch term-wise marks data using stored cookies
  */
 app.post('/api/marks', async (req, res) => {
-    const { cookies } = req.body;
-
-    if (!cookies) {
-        return res.status(400).json({
-            success: false,
-            error: 'Cookies are required'
-        });
-    }
-
     try {
+        const cookies = await getEffectiveCookies(req);
+
+        if (!cookies) {
+            return res.status(400).json({
+                success: false,
+                error: 'Cookies or registration number are required'
+            });
+        }
+
         // console.log('📊 Fetching term-wise marks...');
 
         const axiosClient = createAxiosClient(cookies);
@@ -547,16 +600,16 @@ app.post('/api/marks', async (req, res) => {
  * Fetch student timetable using stored cookies
  */
 app.post('/api/timetable', async (req, res) => {
-    const { cookies } = req.body;
-
-    if (!cookies) {
-        return res.status(400).json({
-            success: false,
-            error: 'Cookies are required'
-        });
-    }
-
     try {
+        const cookies = await getEffectiveCookies(req);
+
+        if (!cookies) {
+            return res.status(400).json({
+                success: false,
+                error: 'Cookies or registration number are required'
+            });
+        }
+
         // console.log('📅 Fetching student timetable...');
 
         const axiosClient = createAxiosClient(cookies);
@@ -598,16 +651,16 @@ app.post('/api/timetable', async (req, res) => {
  * Fetch student courses using stored cookies
  */
 app.post('/api/courses', async (req, res) => {
-    const { cookies } = req.body;
-
-    if (!cookies) {
-        return res.status(400).json({
-            success: false,
-            error: 'Cookies are required'
-        });
-    }
-
     try {
+        const cookies = await getEffectiveCookies(req);
+
+        if (!cookies) {
+            return res.status(400).json({
+                success: false,
+                error: 'Cookies or registration number are required'
+            });
+        }
+
         // console.log('📚 Fetching student courses...');
 
         const axiosClient = createAxiosClient(cookies);
@@ -633,16 +686,16 @@ app.post('/api/courses', async (req, res) => {
  * Fetch student seating plan using stored cookies
  */
 app.post('/api/seating-plan', async (req, res) => {
-    const { cookies } = req.body;
-
-    if (!cookies) {
-        return res.status(400).json({
-            success: false,
-            error: 'Cookies are required'
-        });
-    }
-
     try {
+        const cookies = await getEffectiveCookies(req);
+
+        if (!cookies) {
+            return res.status(400).json({
+                success: false,
+                error: 'Cookies or registration number are required'
+            });
+        }
+
         // console.log('🪑 Fetching student seating plan...');
 
         const axiosClient = createAxiosClient(cookies);
@@ -675,13 +728,13 @@ app.post('/api/seating-plan', async (req, res) => {
  * Fetch student hostel information (VID, Name, Hostel, Room No)
  */
 app.post('/api/hostel-info', async (req, res) => {
-    const { cookies } = req.body;
-
-    if (!cookies) {
-        return res.status(400).json({ success: false, error: 'Cookies are required' });
-    }
-
     try {
+        const cookies = await getEffectiveCookies(req);
+
+        if (!cookies) {
+            return res.status(400).json({ success: false, error: 'Cookies or registration number are required' });
+        }
+
         // console.log('🏠 Fetching hostel info...');
         const axiosClient = createAxiosClient(cookies);
         const hostelData = await fetchHostelInfo(axiosClient);
