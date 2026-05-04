@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { Info, Bell, Shield, GraduationCap, CheckCircle, AlertCircle, Menu } from 'lucide-react';
+import { Info, Bell, Shield, GraduationCap, CheckCircle, AlertCircle, Menu, RefreshCw, ChevronRight, BookOpen, FileText, Award, Calendar, ClipboardList, IdCard, Ticket, Trophy } from 'lucide-react';
 import Sidebar from './Sidebar';
 import MessagesCard from './MessagesCard';
 import SeatingPlanCardCompact from './SeatingPlanCardCompact';
 import MobileNotificationsSheet from './MobileNotificationsSheet';
-import { getStudentInfo, getSeatingPlan, getTimeTable } from '../services/api';
+import { Building2,Bed,Table } from 'lucide-react';
+import { getStudentInfo, getSeatingPlan, getTimeTable, getRanking } from '../services/api';
 
 const getGreeting = () => {
     const h = new Date().getHours();
@@ -26,6 +27,7 @@ const Dashboard = () => {
     const [hideProfile, setHideProfile] = useState(false);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
     const [timetableLoading, setTimetableLoading] = useState(false);
+    const [ranking, setRanking] = useState(null);
 
 
 
@@ -49,6 +51,29 @@ const Dashboard = () => {
     }, []);
 
     useEffect(() => {
+        const fetchRanking = async (regno) => {
+            const cached = localStorage.getItem('umz_ranking_data');
+            if (cached) {
+                try {
+                    const parsed = JSON.parse(cached);
+                    if (parsed.regno === regno) {
+                        setRanking(parsed.data);
+                        return;
+                    }
+                } catch { localStorage.removeItem('umz_ranking_data'); }
+            }
+
+            try {
+                const res = await getRanking(regno);
+                if (res.success) {
+                    setRanking(res.data);
+                    localStorage.setItem('umz_ranking_data', JSON.stringify({ regno, data: res.data }));
+                }
+            } catch (e) {
+                console.error('Ranking fetch failed:', e);
+            }
+        };
+
         const fetchData = async () => {
             // First, always check for cached data
             const cachedInfo = localStorage.getItem('umz_student_info');
@@ -66,6 +91,8 @@ const Dashboard = () => {
                         console.log('📦 Using cached student info');
                         setStudentInfo(parsed);
                         setLoading(false);
+
+                        if (parsed.Registrationnumber) fetchRanking(parsed.Registrationnumber);
 
                         // Still fetch seating plan even with cached student info
                         const cookies = localStorage.getItem('umz_cookies');
@@ -102,6 +129,7 @@ const Dashboard = () => {
                 const result = await getStudentInfo(auth);
                 console.log('📨 Messages in response:', result.data?.Messages);
                 setStudentInfo(result.data);
+                if (result.data.Registrationnumber) fetchRanking(result.data.Registrationnumber);
 
                 // Store student info in localStorage for caching
                 localStorage.setItem('umz_student_info', JSON.stringify(result.data));
@@ -197,11 +225,6 @@ const Dashboard = () => {
             let count = 0;
             const backlogGrades = new Set(['E', 'F', 'G', 'I']);
 
-            (parsed.rplGrades || []).forEach(grp => {
-                (grp.subjects || []).forEach(sub => {
-                    if (sub.grade && backlogGrades.has(sub.grade.trim().toUpperCase())) count++;
-                });
-            });
             
             if (parsed.semesters) {
                 parsed.semesters.forEach(sem => {
@@ -277,17 +300,26 @@ const Dashboard = () => {
                 <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-30">
                     <div className="w-8" />
                     <h1 className="text-base font-bold text-gray-900 dark:text-white tracking-tight">Dashboard</h1>
-                    <button
-                        className="relative p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors active:scale-90"
-                        onClick={() => setIsNotifOpen(true)}
-                    >
-                        <Bell className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-                        {(studentInfo?.Messages?.length > 0) && (
-                            <span className="absolute top-1 right-1 flex items-center justify-center min-w-[10px] h-3 px-1 text-[9px] font-bold text-white bg-red-500 rounded-full">
-                                {studentInfo.Messages.length > 9 ? '9+' : studentInfo.Messages.length}
-                            </span>
-                        )}
-                    </button>
+                    <div className="flex items-center gap-1">
+                        <button
+                            className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors active:scale-90"
+                            onClick={() => window.dispatchEvent(new CustomEvent('trigger-resync'))}
+                            title="Resync Data"
+                        >
+                            <RefreshCw className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+                        </button>
+                        <button
+                            className="relative p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors active:scale-90"
+                            onClick={() => setIsNotifOpen(true)}
+                        >
+                            <Bell className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+                            {(studentInfo?.Messages?.length > 0) && (
+                                <span className="absolute top-1 right-1 flex items-center justify-center min-w-[10px] h-3 px-1 text-[9px] font-bold text-white bg-red-500 rounded-full">
+                                    {studentInfo.Messages.length > 9 ? '9+' : studentInfo.Messages.length}
+                                </span>
+                            )}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Mobile Scrollable Body */}
@@ -311,16 +343,15 @@ const Dashboard = () => {
                         )}
                     </div>
 
-                    {/* Password Banner */}
+                    {/* Password Notice - Ultra Minimal */}
                     {studentInfo?.PasswordExpiry && (
-                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30 rounded-2xl px-4 py-3 flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
-                                <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        <div className="flex items-center gap-3 px-4 py-4 opacity-80 bg-white dark:bg-gray-800 rounded-2xl shadow-sm">
+                            <div className="flex-shrink-0">
+                                <Shield className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
                             </div>
-                            <div>
-                                <p className="text-[12px] font-semibold text-amber-800 dark:text-amber-300">Password Expiring Soon</p>
-                                <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5">{studentInfo.PasswordExpiry}</p>
-                            </div>
+                            <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 leading-tight">
+                                <span className="font-bold text-gray-600 dark:text-gray-300">Password Expiry: </span> {studentInfo.PasswordExpiry}
+                            </p>
                         </div>
                     )}
 
@@ -362,14 +393,25 @@ const Dashboard = () => {
                                 <p className="text-2xl font-bold text-gray-900 dark:text-white leading-none">{backlogCount}</p>
                             </button>
                             <button
-                                onClick={() => setIsNotifOpen(true)}
-                                className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 text-left active:scale-95 transition-transform shadow-sm"
+                                onClick={() => navigate('/ranking')}
+                                className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 text-left active:scale-95 transition-transform shadow-sm relative overflow-hidden"
                             >
-                                <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center mb-3">
-                                    <Bell className="h-4 w-4 text-purple-500" />
+                                <div className="absolute -right-2 -bottom-2 opacity-[0.05] dark:opacity-[0.1] pointer-events-none">
+                                    <Trophy className="h-16 w-16" />
                                 </div>
-                                <p className="text-[10px] font-semibold text-purple-500 uppercase tracking-wide mb-1">Messages</p>
-                                <p className="text-2xl font-bold text-gray-900 dark:text-white leading-none">{studentInfo?.Messages?.length || 0}</p>
+                                <div className="flex w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-900/30 items-center justify-center mb-3">
+                                    <Trophy className="h-4 w-4 text-amber-500" />
+                                    <span className='text-gray-300 text-sm absolute right-3'>/{ranking?.TotalStudents || '—'}</span>
+                                </div>
+                                <p className="text-[10px] font-semibold text-amber-500 uppercase tracking-wide mb-1">Rank</p>
+                                <p className="text-xl font-bold text-gray-900 dark:text-white leading-none">
+                                    <span className='text-gray-400 text-sm'>#</span>{ranking?.Rank || '—'}
+                                </p>
+                                {ranking?.Percentage && (
+                                    <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mt-1.5">
+                                        Top {Math.round(parseFloat(ranking.Percentage))}%
+                                    </p>
+                                )}
                             </button>
                         </div>
                     </div>
@@ -546,6 +588,49 @@ const Dashboard = () => {
                                 </div>
                             </div>
                         )}
+                    </div>
+
+                    {/* Quick Access Section - Mobile Only */}
+                    <div className="pb-8">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-sm font-bold text-gray-900 dark:text-white tracking-tight">Quick Access</h3>
+                            {/* <button className="text-xs font-semibold text-blue-500 dark:text-blue-400">View all</button> */}
+                        </div>
+                        
+                        <div className="grid grid-cols-4 gap-3">
+                            {[
+                                { name: 'Courses', icon: BookOpen, path: '/courses' },
+                                // { name: 'Attendance', icon: CheckCircle, path: '/attendance' },
+                                { name: 'Marks', icon: FileText, path: '/marks' },
+                                // { name: 'CGPA', icon: Award, path: '/cgpa' },
+                                { name: 'Time Table', icon: Calendar, path: '/time-table' },
+                                // { name: 'Assignments', icon: ClipboardList, badge: 3 },
+                                // { name: 'Notices', icon: Bell, badge: 2 },
+                                { name: 'Mutual Shift', icon: Building2, path:'/mutual-shift' },
+                                { name: 'Hostel Leave', icon: Bed },
+                                { name: 'Teacher on Leave', icon: Ticket },
+                                { name: 'Seating Plan', icon: Table },
+                                { name: 'Coming Soon', icon: Ticket },
+                            ].map((item, i) => (
+                                <button 
+                                    key={i}
+                                    onClick={() => item.path && navigate(item.path)}
+                                    className="bg-white dark:bg-gray-800 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 border border-gray-100 dark:border-gray-700/50 shadow-sm active:scale-95 transition-all relative"
+                                >
+                                    {item.badge && (
+                                        <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-blue-600 text-white text-[8px] font-bold rounded-full flex items-center justify-center ring-2 ring-white dark:ring-gray-800">
+                                            {item.badge}
+                                        </span>
+                                    )}
+                                    <div className="w-8 h-8 flex items-center justify-center">
+                                        <item.icon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                                    </div>
+                                    <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300 text-center leading-tight">
+                                        {item.name}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                 </div>

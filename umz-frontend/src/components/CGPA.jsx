@@ -197,8 +197,7 @@ const CGPA = () => {
         if (!resultData?.semesters) return [];
         const counts = {};
         const allSubjects = [
-            ...(resultData.semesters || []).flatMap(s => s.subjects || []),
-            ...(resultData.rplGrades || []).flatMap(r => r.subjects || [])
+            ...(resultData.semesters || []).flatMap(s => s.subjects || [])
         ];
 
         allSubjects.forEach(sub => {

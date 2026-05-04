@@ -253,6 +253,9 @@ const Sidebar = () => {
         }
     };
 
+    // Register external resync trigger (for mobile dashboard button)
+    useExternalResync(handleResync);
+
     const menuSections = [
         {
             title: "General",
@@ -572,6 +575,15 @@ const Sidebar = () => {
             />
         </>
     );
+};
+
+// Separate effect to handle external resync triggers
+const useExternalResync = (handler) => {
+    useEffect(() => {
+        const listener = () => handler();
+        window.addEventListener('trigger-resync', listener);
+        return () => window.removeEventListener('trigger-resync', listener);
+    }, [handler]);
 };
 
 export default Sidebar;

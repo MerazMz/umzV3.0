@@ -16,13 +16,6 @@ const MobileBacklogs = () => {
                 const backlogList = [];
                 const backlogGrades = new Set(['E', 'F', 'G', 'I']);
 
-                (parsed.rplGrades || []).forEach(grp => {
-                    (grp.subjects || []).forEach(sub => {
-                        if (sub.grade && backlogGrades.has(sub.grade.trim().toUpperCase())) {
-                            backlogList.push({ ...sub, semester: grp.semester });
-                        }
-                    });
-                });
                 
                 // Also check regular grades if they exist in a similar structure
                 if (parsed.semesters) {
