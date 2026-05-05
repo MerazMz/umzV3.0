@@ -6,6 +6,7 @@ import Marks from './components/Marks';
 import CGPA from './components/CGPA';
 import TimeTable from './components/TimeTable';
 import Courses from './components/Courses';
+import Grades from './components/Grades';
 import Ranking from './components/Ranking';
 import MutualShift from './components/MutualShift';
 import HostelInfo from './components/HostelInfo';
@@ -41,11 +42,11 @@ function AppContent() {
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/attendance" element={<Attendance />} />
-        <Route path="/marks" element={<Marks />} />
+        <Route path="/marks" element={<Grades />} />
         <Route path="/cgpa" element={<CGPA />} />
         <Route path="/time-table" element={<TimeTable />} />
         <Route path="/courses" element={<Courses />} />
-        <Route path="/grades" element={<Courses />} />
+        <Route path="/grades" element={<Grades />} />
         <Route path="/ranking" element={<Ranking />} />
         <Route path="/mutual-shift" element={<MutualShift />} />
         <Route path="/hostel-info" element={<HostelInfo />} />

@@ -31,7 +31,7 @@ export async function fetchStudentCourses(client) {
         const html = response.data.d;
 
         if (!html || typeof html !== 'string') {
-            console.error('Response data:', response.data);
+            // console.error('Response data:', response.data);
             throw new Error('Invalid response format - expected HTML string in data.d');
         }
 

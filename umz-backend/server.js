@@ -20,6 +20,8 @@ import { fetchPasswordExpiry } from './src/modules/GetPasswordExpiry.js';
 import { fetchHostelInfo } from './src/modules/GetHostelInfo.js';
 import { fetchStudentResult } from './src/modules/GetStudentResult.js';
 import { getAIBuddyResponse } from './src/modules/AiBuddy.js';
+import { fetchPendingAssignments } from './src/modules/GetPendingAssignments.js';
+import { fetchLeaveSlipUid } from './src/modules/GetLeaveSlipUrl.js';
 import MutualShiftPost from './src/models/MutualShiftPost.js';
 import UserSession from './src/models/UserSession.js';
 
@@ -38,7 +40,7 @@ mongoose.connect(MONGO_URI)
 
 // Middleware
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: true,
     credentials: true
 }));
 app.use(express.json({ limit: '5mb' }));
@@ -66,6 +68,65 @@ function cleanupExpiredSessions() {
 
 // Run cleanup every minute
 setInterval(cleanupExpiredSessions, 60 * 1000);
+
+// In-memory storage for temporary downloads
+const tempDownloads = new Map();
+
+/**
+ * POST /api/download-prepare
+ * Stores base64 data temporarily and returns a download ID.
+ */
+app.post('/api/download-prepare', (req, res) => {
+    const { base64, filename, contentType } = req.body;
+    if (!base64 || !filename) {
+        return res.status(400).json({ success: false, error: 'Missing data' });
+    }
+
+    const downloadId = uuidv4();
+    tempDownloads.set(downloadId, {
+        base64,
+        filename,
+        contentType,
+        timestamp: Date.now()
+    });
+
+    // Cleanup after 1 minute
+    setTimeout(() => tempDownloads.delete(downloadId), 60000);
+
+    res.json({ success: true, downloadId });
+});
+
+/**
+ * GET /api/download-file/:id/:filename
+ * Serves the temporarily stored file with improved headers for Android.
+ */
+app.get('/api/download-file/:id/:filename', (req, res) => {
+    const { id } = req.params;
+    const download = tempDownloads.get(id);
+
+    if (!download) {
+        return res.status(404).send('Download expired or not found');
+    }
+
+    try {
+        const buffer = Buffer.from(download.base64, 'base64');
+        
+        // Comprehensive headers for Android DownloadManager
+        res.setHeader('Content-Type', download.contentType || 'application/octet-stream');
+        res.setHeader('Content-Length', buffer.length);
+        res.setHeader('Content-Disposition', `attachment; filename="${download.filename}"`);
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        
+        res.send(buffer);
+        
+        // Keep in memory for a few more seconds in case of retries/resumes
+        setTimeout(() => tempDownloads.delete(id), 10000);
+    } catch (error) {
+        res.status(500).send('Error processing download');
+    }
+});
 
 /**
  * GET /api/health
@@ -340,7 +401,7 @@ app.post('/api/save-session', async (req, res) => {
  * Helper to get cookies from body or DB
  */
 async function getEffectiveCookies(req) {
-    const { cookies, regno } = req.body;
+    const { cookies, regno } = { ...req.body, ...req.query };
     
     if (cookies) return cookies;
     
@@ -532,9 +593,87 @@ app.get('/api/health', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 UMS Backend Server running on http://localhost:${PORT}`);
     // console.log(`📡 Accepting requests from React frontend`);
+});
+
+/**
+ * POST /api/leave-slip-url
+ * Generates the Hostel Leave Slip URL by following redirects
+ */
+app.post('/api/leave-slip-url', async (req, res) => {
+    try {
+        const cookies = await getEffectiveCookies(req);
+        if (!cookies) return res.status(400).json({ success: false, error: 'Auth required' });
+
+        const axiosClient = createAxiosClient(cookies);
+        const result = await fetchLeaveSlipUid(axiosClient);
+
+        if (!result || !result.uid) {
+            return res.status(500).json({ success: false, error: 'Could not generate leave slip' });
+        }
+
+        const leaveSlipUrl = `https://ums.lpu.in/lpuums/frmHostelLeaveSlipTest.aspx?uid=${result.uid}`;
+        
+        res.json({
+            success: true,
+            url: leaveSlipUrl,
+            data: result.data
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * POST /api/fetch-slip-html
+ * Fetches HTML directly from a provided UMS URL (used for cached URL fast-access)
+ */
+app.post('/api/fetch-slip-html', async (req, res) => {
+    try {
+        const { url } = req.body;
+        if (!url) return res.status(400).json({ success: false, error: 'URL is required' });
+
+        const cookies = await getEffectiveCookies(req);
+        if (!cookies) return res.status(400).json({ success: false, error: 'Auth required' });
+
+        const axiosClient = createAxiosClient(cookies);
+        const { fetchSlipDataFromUrl } = await import('./src/modules/GetLeaveSlipUrl.js');
+        const data = await fetchSlipDataFromUrl(axiosClient, url);
+
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * GET /api/student-image
+ * Proxies student images from UMS to bypass cookie/CORS issues in WebView
+ */
+app.get('/api/student-image', async (req, res) => {
+    try {
+        const { url } = req.query;
+        if (!url) return res.status(400).send('URL required');
+
+        // Use the robust cookie helper used by other endpoints
+        const cookies = await getEffectiveCookies(req);
+        if (!cookies) return res.status(401).send('Auth required');
+
+        const axiosClient = createAxiosClient(cookies);
+        const response = await axiosClient.get(url, { 
+            responseType: 'arraybuffer',
+            timeout: 10000 
+        });
+        
+        res.set('Content-Type', response.headers['content-type'] || 'image/jpeg');
+        res.set('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+        res.send(response.data);
+    } catch (error) {
+        console.error('Image Proxy Error:', error.message);
+        res.status(500).send(error.message);
+    }
 });
 
 /**
@@ -674,6 +813,37 @@ app.post('/api/courses', async (req, res) => {
     } catch (error) {
         // console.error('❌ Error fetching courses:', error.message);
 
+        return res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/pending-assignments
+ * Fetch student pending assignments using stored cookies
+ */
+app.post('/api/pending-assignments', async (req, res) => {
+    try {
+        const cookies = await getEffectiveCookies(req);
+
+        if (!cookies) {
+            return res.status(400).json({
+                success: false,
+                error: 'Cookies or registration number are required'
+            });
+        }
+
+        const axiosClient = createAxiosClient(cookies);
+        const assignments = await fetchPendingAssignments(axiosClient);
+
+        return res.json({
+            success: true,
+            data: assignments
+        });
+
+    } catch (error) {
         return res.status(500).json({
             success: false,
             error: error.message

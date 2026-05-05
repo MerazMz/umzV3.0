@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import { downloadFile } from './downloadHelper';
 
 /**
  * Generates and downloads a PDF of the student's timetable
@@ -168,8 +169,9 @@ export const generateTimetablePDF = (timetableData, studentName) => {
         const dateString = new Date().toLocaleDateString('en-IN').replace(/\//g, '-');
         const filename = `Timetable_${sanitizedName}_${dateString}.pdf`;
 
-        // Save PDF
-        doc.save(filename);
+        // Save PDF using universal helper
+        const blob = doc.output('blob');
+        downloadFile(blob, filename);
 
         console.log('✅ PDF generated successfully:', filename);
         return true;

@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { Info, Bell, Shield, GraduationCap, CheckCircle, AlertCircle, Menu, RefreshCw, ChevronRight, BookOpen, FileText, Award, Calendar, ClipboardList, IdCard, Ticket, Trophy } from 'lucide-react';
+import { Info, Bell, Shield, GraduationCap, CheckCircle, AlertCircle, Menu, RefreshCw, ChevronRight, BookOpen, FileText, Award, Calendar, ClipboardList, IdCard, Ticket, Trophy, Send, X, Bot } from 'lucide-react';
 import Sidebar from './Sidebar';
 import MessagesCard from './MessagesCard';
 import SeatingPlanCardCompact from './SeatingPlanCardCompact';
 import MobileNotificationsSheet from './MobileNotificationsSheet';
 import { Building2,Bed,Table } from 'lucide-react';
-import { getStudentInfo, getSeatingPlan, getTimeTable, getRanking } from '../services/api';
+import { getStudentInfo, getSeatingPlan, getTimeTable, getRanking, getPendingAssignments, getLeaveSlipUrl, getLeaveSlipHtmlFromUrl } from '../services/api';
+import { sendNotification } from '../utils/notificationHelper';
+import LeaveSlipModal from './LeaveSlipModal';
 
 const getGreeting = () => {
     const h = new Date().getHours();
@@ -28,8 +30,185 @@ const Dashboard = () => {
     const [isNotifOpen, setIsNotifOpen] = useState(false);
     const [timetableLoading, setTimetableLoading] = useState(false);
     const [ranking, setRanking] = useState(null);
+    const [notifToast, setNotifToast] = useState('');
+    const [pendingAssignments, setPendingAssignments] = useState([]);
+    const [showAssignments, setShowAssignments] = useState(false);
+    const [showSeatingPlan, setShowSeatingPlan] = useState(false);
+    const [showLeaveSlip, setShowLeaveSlip] = useState(false);
+    const [leaveSlipUrl, setLeaveSlipUrl] = useState('');
+    const [leaveSlipData, setLeaveSlipData] = useState(null);
+    const [assignmentsLoading, setAssignmentsLoading] = useState(false);
 
+    const handleTestNotification = async () => {
+        const title = 'UMz Test Notification';
+        const body = 'This is a real-time test notification from your device! 🚀';
 
+        // 🔥 Android App Bridge
+        if (window.Android && window.Android.triggerNotification) {
+            window.Android.triggerNotification(title, body);
+            
+            // 🧪 Mock a class reminder for testing (15 mins from now)
+            if (window.Android.scheduleReminders) {
+                const now = new Date();
+                const future = new Date(now.getTime() + 15 * 60000); 
+                const timeStr = `${future.getHours().toString().padStart(2, '0')}:${future.getMinutes().toString().padStart(2, '0')}-00:00`;
+                const day = now.toLocaleDateString('en-US', { weekday: 'long' });
+                
+                const mockTimetable = {
+                    [day]: [{
+                        type: "TEST CLASS",
+                        courseCode: "DEBUG101",
+                        room: "Lab-1",
+                        time: timeStr
+                    }]
+                };
+                window.Android.scheduleReminders(JSON.stringify(mockTimetable));
+                setNotifToast('Immediate test sent & Mock class synced! (Wait 1m)');
+            } else {
+                setNotifToast('Android notification triggered!');
+            }
+            
+            setTimeout(() => setNotifToast(''), 3000);
+            return;
+        }
+
+        // 🌐 Web Browser Fallback
+        if (!('Notification' in window)) {
+            alert('This browser does not support desktop notifications');
+            return;
+        }
+
+        try {
+            let permission = Notification.permission;
+            if (permission !== 'granted') {
+                permission = await Notification.requestPermission();
+            }
+
+            if (permission === 'granted') {
+                new Notification(title, {
+                    body: body,
+                    tag: 'test-notification'
+                });
+                setNotifToast('Test notification sent!');
+                setTimeout(() => setNotifToast(''), 3000);
+            } else {
+                alert('Notification permission denied');
+            }
+        } catch (err) {
+            console.error('Notification error:', err);
+        }
+    };
+
+    // automated Class Reminders Logic
+    useEffect(() => {
+        if (!timetable || Object.keys(timetable).length === 0) return;
+
+        const checkReminders = () => {
+            const now = new Date();
+            const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' });
+            const dayClasses = timetable[currentDay] || [];
+            
+            if (dayClasses.length === 0) return;
+
+            dayClasses.forEach(cls => {
+                if (!cls.time) return;
+
+                // Parse class start time (e.g., "09:00-10:00")
+                const startTimeStr = cls.time.split('-')[0];
+                const [hours, minutes] = startTimeStr.split(':').map(Number);
+                
+                const classTime = new Date(now);
+                classTime.setHours(hours, minutes, 0, 0);
+
+                const diffMs = classTime - now;
+                const diffMins = Math.floor(diffMs / 60000);
+
+                // Reminder points: 30 min and 15 min
+                if (diffMins === 30 || diffMins === 15) {
+                    const reminderId = `reminder-${cls.courseCode || cls.type}-${startTimeStr}-${diffMins}`;
+                    const alreadySent = localStorage.getItem(reminderId);
+
+                    if (!alreadySent) {
+                        const title = `Class Reminder (${diffMins}m)`;
+                        const body = `${cls.type || 'Class'}: ${cls.courseCode || ''}\nRoom: ${cls.room || 'N/A'}\nTime: ${cls.time}`;
+                        
+                        sendNotification(title, body);
+                        localStorage.setItem(reminderId, 'sent');
+                        
+                        // Clean up: In a real app, you'd clean up old keys periodically
+                    }
+                }
+            });
+        };
+
+        // Check every minute
+        const interval = setInterval(checkReminders, 60000);
+        checkReminders(); // Initial check
+
+        return () => clearInterval(interval);
+    }, [timetable]);
+
+    const handleHostelLeave = async () => {
+        try {
+            const cookies = localStorage.getItem('umz_cookies');
+            const auth = cookies ? cookies : { regno: localStorage.getItem('umz_regno') };
+
+            // 🚀 FAST PATH: Try fetching with cached URL first
+            const cached = localStorage.getItem('umz_leave_slip');
+            if (cached) {
+                try {
+                    const { url, timestamp, data } = JSON.parse(cached);
+                    const isFresh = (Date.now() - timestamp) < 12 * 60 * 60 * 1000;
+                    
+                    if (isFresh) {
+                        // setNotifToast('Refreshing leave slip...');
+                        const directRes = await getLeaveSlipHtmlFromUrl(url, auth);
+                        if (directRes.success && directRes.data) {
+                            setLeaveSlipUrl(url);
+                            setLeaveSlipData(directRes.data);
+                            setShowLeaveSlip(true);
+                            
+                            localStorage.setItem('umz_leave_slip', JSON.stringify({ url, data: directRes.data, timestamp: Date.now() }));
+                            // setNotifToast('Slip updated');
+                            setTimeout(() => setNotifToast(''), 3000);
+                            return;
+                        }
+                    }
+                } catch (e) { console.warn('Cache fetch failed:', e); }
+            }
+
+            // setNotifToast('Generating secure link...');
+            const result = await getLeaveSlipUrl(auth);
+            if (result.success && result.url) {
+                setLeaveSlipUrl(result.url);
+                setLeaveSlipData(result.data || null);
+                setShowLeaveSlip(true);
+                
+                localStorage.setItem('umz_leave_slip', JSON.stringify({
+                    url: result.url,
+                    data: result.data,
+                    timestamp: Date.now()
+                }));
+                
+                // setNotifToast('Leave slip loaded');
+            } else {
+                setNotifToast('Failed to generate slip');
+            }
+            // setTimeout(() => setNotifToast(''), 3000);
+        } catch (err) {
+            console.error('Leave slip error:', err);
+            setNotifToast('Error: ' + err.message);
+            setTimeout(() => setNotifToast(''), 3000);
+        }
+    };
+
+    // Sync timetable with Android for background reminders
+    useEffect(() => {
+        if (timetable && Object.keys(timetable).length > 0 && window.Android && window.Android.scheduleReminders) {
+            console.log('🤖 Syncing timetable with Android for background alerts...');
+            window.Android.scheduleReminders(JSON.stringify(timetable));
+        }
+    }, [timetable]);
 
     // Load privacy settings from localStorage
     useEffect(() => {
@@ -193,6 +372,25 @@ const Dashboard = () => {
             }
         };
         loadTimetable();
+
+        // Load Pending Assignments
+        const loadAssignments = async () => {
+            const cookies = localStorage.getItem('umz_cookies');
+            const regno = localStorage.getItem('umz_regno');
+            if (!cookies && !regno) return;
+            const auth = cookies ? cookies : { regno };
+
+            try {
+                setAssignmentsLoading(true);
+                const result = await getPendingAssignments(auth);
+                setPendingAssignments(result.data || []);
+            } catch (e) {
+                console.warn('⚠️ Could not load assignments:', e.message);
+            } finally {
+                setAssignmentsLoading(false);
+            }
+        };
+        loadAssignments();
     }, [navigate]);
 
     const dayName = ['Sun','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()];
@@ -603,19 +801,27 @@ const Dashboard = () => {
                                 // { name: 'Attendance', icon: CheckCircle, path: '/attendance' },
                                 { name: 'Marks', icon: FileText, path: '/marks' },
                                 // { name: 'CGPA', icon: Award, path: '/cgpa' },
-                                { name: 'Time Table', icon: Calendar, path: '/time-table' },
-                                // { name: 'Assignments', icon: ClipboardList, badge: 3 },
+                                { 
+                                    name: 'Pending Assignment', 
+                                    icon: ClipboardList, 
+                                    action: () => setShowAssignments(true),
+                                    badge: pendingAssignments.length > 0 ? pendingAssignments.length : null
+                                },
                                 // { name: 'Notices', icon: Bell, badge: 2 },
                                 { name: 'Mutual Shift', icon: Building2, path:'/mutual-shift' },
-                                { name: 'Hostel Leave', icon: Bed },
+                                { name: 'Leave Slip', icon: Bed, action: handleHostelLeave },
                                 { name: 'Teacher on Leave', icon: Ticket },
-                                { name: 'Seating Plan', icon: Table },
-                                { name: 'Coming Soon', icon: Ticket },
+                                { name: 'Seating Plan', icon: Table, action: () => setShowSeatingPlan(true) },
+                                { name: 'Test Notif', icon: Send, action: handleTestNotification, isTest: true },
+                                // { name: 'Coming Soon', icon: Ticket },
                             ].map((item, i) => (
                                 <button 
                                     key={i}
-                                    onClick={() => item.path && navigate(item.path)}
-                                    className="bg-white dark:bg-gray-800 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 border border-gray-100 dark:border-gray-700/50 shadow-sm active:scale-95 transition-all relative"
+                                    onClick={() => {
+                                        if (item.action) item.action();
+                                        else if (item.path) navigate(item.path);
+                                    }}
+                                    className={`bg-white dark:bg-gray-800 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 border shadow-sm active:scale-95 transition-all relative ${item.isTest ? 'border-indigo-100 dark:border-indigo-900/30' : 'border-gray-100 dark:border-gray-700/50'}`}
                                 >
                                     {item.badge && (
                                         <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-blue-600 text-white text-[8px] font-bold rounded-full flex items-center justify-center ring-2 ring-white dark:ring-gray-800">
@@ -662,6 +868,10 @@ const Dashboard = () => {
                             </div>
                             // </div>
                         )}
+
+                        <div className="flex items-center gap-3">
+                            {/* Desktop header remains minimal as Quick Access is now in the main grid */}
+                        </div>
                     </div>
 
                     {/* Profile Information - Moved to Top */}
@@ -837,10 +1047,51 @@ const Dashboard = () => {
                             </div>
                         )}
 
-                        {/* Seating Plan Card - Compact */}
-                        {seatingPlan !== null && (
-                            <SeatingPlanCardCompact seatingPlan={seatingPlan} />
-                        )}
+                        {/* Desktop Quick Access Grid */}
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-8 border border-gray-100 dark:border-gray-700 flex flex-col">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Quick Access</h3>
+                            <div className="grid grid-cols-2 gap-4 flex-1">
+                                {[
+                                    { 
+                                        name: 'Assignments', 
+                                        icon: ClipboardList, 
+                                        action: () => setShowAssignments(true),
+                                        badge: pendingAssignments.length > 0 ? pendingAssignments.length : null
+                                    },
+                                    { 
+                                        name: 'Seating Plan', 
+                                        icon: Table, 
+                                        action: () => setShowSeatingPlan(true) 
+                                    },
+                                    { 
+                                        name: 'AI Buddy', 
+                                        icon: Bot, 
+                                        action: () => {} 
+                                    },
+                                    { 
+                                        name: 'Hostel Shift', 
+                                        icon: Building2, 
+                                        action: () => navigate('/mutual-shift') 
+                                    },
+                                ].map((item, i) => (
+                                    <button 
+                                        key={i}
+                                        onClick={item.action}
+                                        className="flex flex-col items-center justify-center p-4 rounded-2xl border border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-all active:scale-95 group relative"
+                                    >
+                                        {item.badge && (
+                                            <span className="absolute top-3 right-3 w-5 h-5 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-4 ring-white dark:ring-gray-800 shadow-sm">
+                                                {item.badge}
+                                            </span>
+                                        )}
+                                        <div className="w-12 h-12 bg-gray-50 dark:bg-gray-900 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                            <item.icon className="h-6 w-6 text-gray-400 dark:text-gray-500" />
+                                        </div>
+                                        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{item.name}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Messages Card */}
@@ -918,8 +1169,180 @@ const Dashboard = () => {
                 onClose={() => setIsNotifOpen(false)}
                 messages={studentInfo?.Messages || []}
             />
+
+            {/* Notification Toast */}
+            {notifToast && (
+                <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 bg-indigo-600 text-white text-xs font-bold rounded-2xl shadow-xl shadow-indigo-600/20 animate-in slide-in-from-bottom-full duration-300">
+                    {notifToast}
+                </div>
+            )}
+
+            {/* Assignments Modal */}
+            <AssignmentsModal 
+                isOpen={showAssignments} 
+                onClose={() => setShowAssignments(false)}
+                assignments={pendingAssignments}
+                loading={assignmentsLoading}
+            />
+            {/* Seating Plan Modal */}
+            <SeatingModal 
+                isOpen={showSeatingPlan} 
+                onClose={() => setShowSeatingPlan(false)}
+                seatingPlan={seatingPlan}
+            />
+            <LeaveSlipModal
+                isOpen={showLeaveSlip}
+                onClose={() => setShowLeaveSlip(false)}
+                data={leaveSlipData}
+                profileImage={studentInfo?.profilePic}
+                onRefresh={handleHostelLeave}
+            />
         </div >
     );
 };
 
+const SeatingModal = ({ isOpen, onClose, seatingPlan }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center p-0 sm:p-4 animate-in fade-in duration-300">
+            <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+            <div className="relative w-full max-w-lg bg-white dark:bg-gray-950 rounded-t-[32px] sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-400">
+                {/* Handle for mobile */}
+                <div className="h-1 w-10 bg-gray-200 dark:bg-gray-800 rounded-full mx-auto mt-4 sm:hidden" />
+                
+                <div className="px-6 pt-6 pb-4 flex items-center justify-between">
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Seating Plan</h3>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 font-medium mt-0.5">Your examination details</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 bg-gray-50 dark:bg-gray-900 rounded-full text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+
+                <div className="px-4 pb-10 max-h-[70vh] overflow-y-auto no-scrollbar">
+                    {!seatingPlan || seatingPlan.length === 0 ? (
+                        <div className="py-20 flex flex-col items-center justify-center text-center px-10">
+                            <div className="w-20 h-20 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6">
+                                <Table className="h-10 w-10 text-gray-300 dark:text-gray-600" />
+                            </div>
+                            <h4 className="text-lg font-bold text-gray-900 dark:text-white">No Exams Found</h4>
+                            <p className="text-[13px] text-gray-400 dark:text-gray-500 mt-2 leading-relaxed">We couldn't find any upcoming seating plans for your account.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {seatingPlan.map((exam, idx) => (
+                                <div key={idx} className="p-5 rounded-[24px] bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800/50">
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-white dark:bg-gray-800 rounded-xl flex items-center justify-center shadow-sm">
+                                                <Calendar className="h-5 w-5 text-indigo-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">{exam.Date}</p>
+                                                <h4 className="text-[15px] font-bold text-gray-900 dark:text-white leading-none mt-0.5">{exam.CourseCode}</h4>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Room</p>
+                                            <p className="text-sm font-bold text-gray-800 dark:text-gray-200">{exam.Room}</p>
+                                        </div>
+                                        <div className="space-y-1 text-right">
+                                            <p className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Seat Number</p>
+                                            <p className="text-sm font-bold text-gray-800 dark:text-gray-200">{exam.SeatNo}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Time</p>
+                                            <p className="text-sm font-bold text-gray-800 dark:text-gray-200">{exam.Time}</p>
+                                        </div>
+                                        <div className="space-y-1 text-right">
+                                            <p className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Duty ID</p>
+                                            <p className="text-sm font-bold text-gray-800 dark:text-gray-200">{exam.DutyID || '—'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const AssignmentsModal = ({ isOpen, onClose, assignments, loading }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center p-0 sm:p-4 animate-in fade-in duration-300">
+            <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+            <div className="relative w-full max-w-lg bg-white dark:bg-gray-950 rounded-t-[32px] sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-400">
+                {/* Handle for mobile */}
+                <div className="h-1 w-10 bg-gray-200 dark:bg-gray-800 rounded-full mx-auto mt-4 sm:hidden" />
+                
+                <div className="px-6 pt-6 pb-4 flex items-center justify-between">
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Assignments</h3>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 font-medium mt-0.5">{assignments.length} tasks pending</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 bg-gray-50 dark:bg-gray-900 rounded-full text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+
+                <div className="px-4 pb-8 max-h-[65vh] overflow-y-auto no-scrollbar">
+                    {loading ? (
+                        <div className="py-20 flex flex-col items-center justify-center">
+                            <div className="w-10 h-10 border-3 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
+                            <p className="text-[13px] font-medium text-gray-400">Updating from portal...</p>
+                        </div>
+                    ) : assignments.length === 0 ? (
+                        <div className="py-20 flex flex-col items-center justify-center text-center px-10">
+                            <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-500/10 rounded-full flex items-center justify-center mb-6">
+                                <CheckCircle className="h-10 w-10 text-emerald-500/80" />
+                            </div>
+                            <h4 className="text-lg font-bold text-gray-900 dark:text-white">You're All Set</h4>
+                            <p className="text-[13px] text-gray-400 dark:text-gray-500 mt-2 leading-relaxed">No pending assignments found. Take some time to relax!</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-1">
+                            {assignments.map((asgn, idx) => (
+                                <a 
+                                    key={idx}
+                                    href={asgn.uploadLink} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-4 p-4 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-all active:scale-[0.98]"
+                                >
+                                    <div className="w-10 h-10 shrink-0 bg-blue-50 dark:bg-blue-500/10 rounded-xl flex items-center justify-center">
+                                        <ClipboardList className="h-5 w-5 text-blue-500/80" />
+                                    </div>
+                                    
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                            <span className="text-[10px] font-bold text-blue-600/80 dark:text-blue-400/80 uppercase tracking-wider">{asgn.courseCode}</span>
+                                            <span className="text-gray-300 dark:text-gray-800 text-[10px]">·</span>
+                                            <span className="text-[10px] font-medium text-rose-500/80 dark:text-rose-400/80">Due {asgn.lastDate}</span>
+                                        </div>
+                                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 leading-snug line-clamp-2">
+                                            {asgn.description}
+                                        </p>
+                                    </div>
+                                    
+                                    <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-700" />
+                                </a>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default Dashboard;
+

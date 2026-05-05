@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 import { RefreshCw } from 'lucide-react';
 import logoUmz from '../assets/logoUMz.png';
-import { startLogin, completeLogin, saveSession, getStudentInfo } from '../services/api';
+import { startLogin, completeLogin, saveSession, getStudentInfo, healthCheck } from '../services/api';
 
 import loginImg1 from '../assets/login1.jpg'
 import loginImg2 from '../assets/login2.jpg'
@@ -26,6 +26,7 @@ const Login = () => {
     const [captchaImage, setCaptchaImage] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [serverDown, setServerDown] = useState(false);
 
     // Slider images (empty placeholders)
     const slides = [
@@ -33,6 +34,20 @@ const Login = () => {
         { id: "Track Your Academic Progress", image: loginImg2 },
         { id: "See Yourself Improving", image: loginImg3 },
     ];
+    
+    // useEffect(() => {
+    //     const checkServerStatus = async () => {
+    //         try {
+    //             await healthCheck();
+    //         } catch (error) {
+    //             console.error('🔴 API is offline:', error);
+    //             setError('Server is currently offline. Please login to start the server.');
+    //             setServerDown(true);
+    //         }
+    //     };
+
+    //     checkServerStatus();
+    // }, []);
 
     useEffect(() => {
         // Check for saved theme preference or default to 'dark'
@@ -227,21 +242,26 @@ const Login = () => {
     return (
         <div className="min-h-screen flex bg-background relative">
             {/* Theme Toggle Button */}
-            <button
-                onClick={toggleTheme}
-                className="cursor-pointer absolute top-4 right-4 p-2 rounded-lg bg-card border border-border hover:bg-accent transition-colors z-50"
-                aria-label="Toggle theme"
-            >
-                {theme === 'dark' ? (
-                    <svg className="h-5 w-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                ) : (
-                    <svg className="h-5 w-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                    </svg>
-                )}
-            </button>
+            <div className='flex justify-between items-center'>
+                {/* {serverDown &&
+                    <h2 className="p-4 absolute top-0 left-0 text-center font-bold text-destructive">Server is down please try after some time</h2>
+                } */}
+                <button
+                    onClick={toggleTheme}
+                    className="cursor-pointer absolute top-4 right-4 p-2 rounded-lg bg-card border border-border hover:bg-accent transition-colors z-50"
+                    aria-label="Toggle theme"
+                >
+                    {theme === 'dark' ? (
+                        <svg className="h-5 w-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                    ) : (
+                        <svg className="h-5 w-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                        </svg>
+                    )}
+                </button>
+            </div>
 
             {/* Left Side - Image Slider */}
             <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">

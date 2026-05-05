@@ -101,20 +101,20 @@ const MobileProfile = ({ studentInfo, onLogout, onNavigate }) => {
                     <div className="w-28 h-28 rounded-full border-4 border-white/10 p-1 mb-4 shadow-2xl">
                         <div className="w-full h-full rounded-full overflow-hidden bg-gray-800">
                             <img
-                                src={studentInfo?.profilePic || "https://api.dicebear.com/7.x/avataaars/svg?seed=Meraj"}
+                                src={studentInfo?.profilePic || "https://api.dicebear.com/7.x/avataaars/svg?seed=Student"}
                                 alt="Profile"
                                 className="w-full h-full object-cover"
                             />
                         </div>
                     </div>
                     <h2 className="text-xl font-bold text-white mb-1 tracking-tight">
-                        {studentInfo?.name || "Md Meraj Ul Haque"}
+                        {studentInfo?.name || "Student"}
                     </h2>
                     <p className="text-[11px] font-medium text-white/40  tracking-[0.2em]">
-                        {studentInfo?.rollNo || "12317530"}
+                        {studentInfo?.rollNo || "00000000"}
                     </p>
                     <p className="text-[11px] font-medium text-white/40  tracking-[0.2em]">
-                        {studentInfo?.programme || "B.Tech CSE"}
+                        {studentInfo?.programme}
                     </p>
                 </div>
             </div>

@@ -1,4 +1,7 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+    (window.location.hostname === 'localhost' || window.location.hostname.match(/^\d+\./) 
+        ? `http://${window.location.hostname}:3001/api` 
+        : 'https://umz-backend-ot1y.onrender.com/api');
 
 /**
  * Helper to construct the request body based on provided auth info
@@ -8,6 +11,18 @@ const getAuthBody = (auth) => {
     if (typeof auth === 'string') return { cookies: auth };
     return auth; // Already an object like { regno: '...' } or { cookies: '...' }
 };
+
+/**
+ * Check if the API is running
+ */
+export async function healthCheck() {
+    const response = await fetch(`${API_BASE_URL}/health`, {
+        method: 'GET',
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Server is down');
+    return data;
+}
 
 /**
  * Start the login process
@@ -267,5 +282,48 @@ export async function getRanking(registrationNumber) {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to fetch ranking');
+    return data;
+}
+
+/**
+ * Get student pending assignments
+ */
+export async function getPendingAssignments(auth) {
+    const response = await fetch(`${API_BASE_URL}/pending-assignments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getAuthBody(auth)),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch pending assignments');
+    return data;
+}
+
+
+/**
+ * Fetch the Hostel Leave Slip URL
+ */
+export async function getLeaveSlipUrl(auth) {
+    const response = await fetch(`${API_BASE_URL}/leave-slip-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getAuthBody(auth)),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch leave slip URL');
+    return data;
+}
+
+/**
+ * Fetch HTML directly from a cached Leave Slip URL
+ */
+export async function getLeaveSlipHtmlFromUrl(url, auth) {
+    const response = await fetch(`${API_BASE_URL}/fetch-slip-html`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...getAuthBody(auth), url }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch slip HTML');
     return data;
 }
